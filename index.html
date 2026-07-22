@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hospital Dr. Luis Mario Marini - Gestión de Stock</title>
+
+  <!-- Hoja de estilos propia -->
+  <link rel="stylesheet" href="style.css" />
+
+  <!--
+    Librería oficial de Supabase, cargada desde un CDN (jsDelivr).
+    Esto nos da un objeto global "supabase" que usamos en app.js para
+    hablar con la base de datos y con el sistema de autenticación,
+    sin necesidad de instalar nada con npm ni correr un servidor.
+  -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+  <!-- =====================================================================
+       PANTALLA DE LOGIN
+       Se muestra siempre al abrir la página. Si ya hay una sesión activa
+       guardada por Supabase, app.js la oculta automáticamente y muestra
+       la pantalla principal.
+  ====================================================================== -->
+  <section id="pantalla-login" class="pantalla-login">
+    <div class="tarjeta-login">
+      <div class="login-header">
+        <span class="login-icono" aria-hidden="true">➕</span>
+        <h1>Hospital Dr. Luis Mario Marini</h1>
+        <p>Sistema de gestión de stock de medicamentos</p>
+      </div>
+
+      <form id="form-login" autocomplete="on">
+        <label for="login-email">Email</label>
+        <input type="email" id="login-email" placeholder="juan@gmail.com" required autocomplete="username" />
+
+        <label for="login-password">Contraseña</label>
+        <input type="password" id="login-password" placeholder="••••••••" required autocomplete="current-password" />
+
+        <button type="submit" class="btn btn-primario btn-ancho">Ingresar</button>
+
+        <p id="login-error" class="mensaje-error oculto" role="alert"></p>
+      </form>
+    </div>
+  </section>
+
+
+  <!-- =====================================================================
+       APLICACIÓN PRINCIPAL (oculta hasta que el usuario inicia sesión)
+  ====================================================================== -->
+  <div id="pantalla-app" class="pantalla-app oculto">
+
+    <!-- ---------- BARRA SUPERIOR ---------- -->
+    <header class="barra-superior">
+      <div class="marca">
+        <span aria-hidden="true">➕</span>
+        <span>Hospital Dr. Luis Mario Marini</span>
+      </div>
+
+      <div class="usuario-actual">
+        <span id="nombre-usuario-actual">Usuario</span>
+        <button id="btn-logout" class="btn btn-secundario btn-chico">Cerrar sesión</button>
+      </div>
+    </header>
+
+    <!-- ---------- LECTOR DE CÓDIGO DE BARRAS ---------- -->
+    <!--
+      Los lectores de código de barras/QR tipo "pistola" USB funcionan
+      como si fueran un teclado: cuando escanean una etiqueta, "tipean"
+      el código muy rápido y al final presionan Enter automáticamente.
+      Por eso alcanza con un input de texto normal: no hace falta ninguna
+      librería especial. En app.js escuchamos el evento "Enter" en este
+      campo para buscar el medicamento correspondiente.
+    -->
+    <div class="barra-scanner">
+      <label for="input-scanner">🔍 Escanear código de barras / QR</label>
+      <input type="text" id="input-scanner" placeholder="Apuntá el lector acá y escaneá... (o escribí el código y presioná Enter)" autocomplete="off" />
+      <span id="scanner-mensaje" class="scanner-mensaje"></span>
+    </div>
+
+    <!-- ---------- PESTAÑAS DE NAVEGACIÓN ---------- -->
+    <nav class="tabs">
+      <button class="tab-btn activa" data-tab="tab-inicio">🏠 Inicio</button>
+      <button class="tab-btn" data-tab="tab-inventario">📦 Inventario</button>
+      <button class="tab-btn" data-tab="tab-alertas">⚠️ Alertas <span id="badge-alertas" class="badge oculto">0</span></button>
+      <button class="tab-btn" data-tab="tab-movimientos">🧾 Movimientos</button>
+    </nav>
+
+    <main class="contenido">
+
+      <!-- =================== TAB: INICIO (accesos rápidos) =================== -->
+      <!--
+        Pantalla pensada para el uso diario de las enfermeras: lo primero
+        que ven al entrar. Prioriza las 2 acciones que se repiten muchas
+        veces por turno (buscar/escanear y registrar retiros de stock) y
+        da un pantallazo rápido de qué necesita atención, sin tener que
+        entrar a buscarlo.
+      -->
+      <section id="tab-inicio" class="tab-panel activa">
+        <div class="saludo">
+          <h1 id="saludo-nombre">Hola 👋</h1>
+          <p>¿Qué necesitás hacer?</p>
+        </div>
+
+        <div class="grilla-inicio">
+          <button class="tarjeta-acceso tarjeta-primaria" id="acceso-ingreso-retiro">
+            <span class="tarjeta-icono">📦</span>
+            <span class="tarjeta-titulo">Ingreso / Retiro de stock</span>
+            <span class="tarjeta-subtitulo">Escaneá o buscá un medicamento arriba</span>
+          </button>
+
+          <button class="tarjeta-acceso" id="acceso-alertas">
+            <span class="tarjeta-icono">⚠️</span>
+            <span class="tarjeta-titulo">Alertas</span>
+            <span class="tarjeta-subtitulo"><span id="contador-alertas-inicio">0</span> medicamentos necesitan atención</span>
+          </button>
+
+          <button class="tarjeta-acceso" id="acceso-agregar">
+            <span class="tarjeta-icono">➕</span>
+            <span class="tarjeta-titulo">Agregar medicamento</span>
+            <span class="tarjeta-subtitulo">Cargar un ingreso nuevo al inventario</span>
+          </button>
+
+          <button class="tarjeta-acceso" id="acceso-movimientos">
+            <span class="tarjeta-icono">🧾</span>
+            <span class="tarjeta-titulo">Ver movimientos</span>
+            <span class="tarjeta-subtitulo">Auditoría de todos los cambios</span>
+          </button>
+        </div>
+
+        <div class="panel-recientes">
+          <h2>Últimos movimientos</h2>
+          <div id="lista-recientes" class="lista-recientes"></div>
+        </div>
+      </section>
+
+      <!-- =================== TAB: INVENTARIO =================== -->
+      <section id="tab-inventario" class="tab-panel">
+        <div class="barra-acciones">
+          <input type="search" id="buscador-inventario" placeholder="Buscar por nombre, lote, código..." />
+          <button id="btn-abrir-alta" class="btn btn-primario">+ Agregar medicamento</button>
+        </div>
+
+        <div class="tabla-wrapper">
+          <table class="tabla" id="tabla-medicamentos">
+
+            <thead>
+              <tr>
+                <th>Estado</th>
+                <th>Nombre genérico</th>
+                <th>Nombre comercial</th>
+                <th>Lote</th>
+                <th>Categoría</th>
+                <th>Stock</th>
+                <th>Vencimiento</th>
+                <th>Almacenamiento</th>
+                <th>Ubicación</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="cuerpo-tabla-medicamentos">
+              <!-- Las filas se generan dinámicamente desde app.js -->
+            </tbody>
+          </table>
+          <p id="inventario-vacio" class="texto-vacio oculto">No hay medicamentos cargados todavía.</p>
+        </div>
+      </section>
+
+      <!-- =================== TAB: ALERTAS =================== -->
+      <section id="tab-alertas" class="tab-panel">
+        <div class="grilla-alertas">
+          <div class="panel-alerta">
+            <h2>🕒 Próximos a vencer / vencidos</h2>
+            <p class="subtexto">Medicamentos que vencen dentro de los próximos 15 días, o que ya vencieron.</p>
+            <div id="lista-alertas-vencimiento" class="lista-alertas"></div>
+          </div>
+
+          <div class="panel-alerta">
+            <h2>📉 Stock por debajo del mínimo</h2>
+            <p class="subtexto">Medicamentos cuyo stock actual está en o por debajo del mínimo definido.</p>
+            <div id="lista-alertas-stock" class="lista-alertas"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- =================== TAB: MOVIMIENTOS / AUDITORÍA =================== -->
+      <section id="tab-movimientos" class="tab-panel">
+        <div class="barra-acciones">
+          <input type="search" id="buscador-movimientos" placeholder="Buscar por medicamento o usuario..." />
+        </div>
+        <div class="tabla-wrapper">
+          <table class="tabla">
+            <thead>
+              <tr>
+                <th>Fecha y hora</th>
+                <th>Usuario</th>
+                <th>Medicamento</th>
+                <th>Tipo</th>
+                <th>Cantidad</th>
+                <th>Stock resultante</th>
+                <th>Observaciones</th>
+              </tr>
+            </thead>
+            <tbody id="cuerpo-tabla-movimientos"></tbody>
+          </table>
+          <p id="movimientos-vacio" class="texto-vacio oculto">Todavía no hay movimientos registrados.</p>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+
+  <!-- =====================================================================
+       MODAL: ALTA / EDICIÓN DE MEDICAMENTO
+  ====================================================================== -->
+  <div id="modal-medicamento" class="modal-fondo oculto">
+    <div class="modal-caja">
+      <div class="modal-header">
+        <h2 id="titulo-modal-medicamento">Agregar medicamento</h2>
+        <button class="btn-cerrar" data-cerrar-modal="modal-medicamento">✕</button>
+      </div>
+
+      <form id="form-medicamento" class="form-grid">
+        <input type="hidden" id="med-id" />
+
+        <div class="campo">
+          <label for="med-codigo-barras">Código de barras / QR</label>
+          <input type="text" id="med-codigo-barras" placeholder="Escanear o escribir código" />
+        </div>
+
+        <div class="campo">
+          <label for="med-nombre-generico">Nombre genérico *</label>
+          <input type="text" id="med-nombre-generico" required placeholder="Ej: Paracetamol" />
+        </div>
+
+        <div class="campo">
+          <label for="med-nombre-comercial">Nombre comercial</label>
+          <input type="text" id="med-nombre-comercial" placeholder="Ej: Tafirol" />
+        </div>
+
+        <div class="campo">
+          <label for="med-lote">Lote</label>
+          <input type="text" id="med-lote" />
+        </div>
+
+        <div class="campo">
+          <label for="med-categoria">Categoría</label>
+          <input type="text" id="med-categoria" placeholder="Ej: Analgésico" />
+        </div>
+
+        <div class="campo">
+          <label for="med-unidad">Unidad</label>
+          <input type="text" id="med-unidad" placeholder="Ej: comprimidos, ampollas, ml" />
+        </div>
+
+        <div class="campo">
+          <label for="med-stock-actual">Stock actual *</label>
+          <input type="number" id="med-stock-actual" min="0" step="1" required value="0" />
+        </div>
+
+        <div class="campo">
+          <label for="med-stock-minimo">Stock mínimo *</label>
+          <input type="number" id="med-stock-minimo" min="0" step="1" required value="0" />
+        </div>
+
+        <div class="campo">
+          <label for="med-fecha-ingreso">Fecha de ingreso</label>
+          <input type="date" id="med-fecha-ingreso" />
+        </div>
+
+        <div class="campo">
+          <label for="med-fecha-vencimiento">Fecha de vencimiento</label>
+          <input type="date" id="med-fecha-vencimiento" />
+        </div>
+
+        <div class="campo">
+          <label for="med-condicion">Condición de almacenamiento</label>
+          <select id="med-condicion">
+            <option value="ambiente">Ambiente</option>
+            <option value="refrigerado">Refrigerado</option>
+            <option value="cadena_frio">Cadena de frío</option>
+          </select>
+        </div>
+
+        <div class="campo">
+          <label for="med-ubicacion">Ubicación física</label>
+          <input type="text" id="med-ubicacion" placeholder="Ej: Farmacia central - Estante 3" />
+        </div>
+
+        <div class="campo">
+          <label for="med-proveedor">Proveedor</label>
+          <input type="text" id="med-proveedor" placeholder="Ej: Droguería del Sur" />
+        </div>
+
+        <div class="campo">
+          <label for="med-estado">Estado</label>
+          <select id="med-estado">
+            <option value="activo">Activo</option>
+            <option value="vencido">Vencido</option>
+            <option value="dado_de_baja">Dado de baja</option>
+          </select>
+        </div>
+
+        <p id="medicamento-error" class="mensaje-error oculto"></p>
+
+        <div class="modal-acciones">
+          <button type="button" class="btn btn-secundario" data-cerrar-modal="modal-medicamento">Cancelar</button>
+          <button type="submit" class="btn btn-primario">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- =====================================================================
+       MODAL: INGRESO / RETIRO / AJUSTE DE STOCK
+  ====================================================================== -->
+  <div id="modal-movimiento" class="modal-fondo oculto">
+    <div class="modal-caja modal-chica">
+      <div class="modal-header">
+        <h2 id="titulo-modal-movimiento">Movimiento de stock</h2>
+        <button class="btn-cerrar" data-cerrar-modal="modal-movimiento">✕</button>
+      </div>
+
+      <form id="form-movimiento">
+        <input type="hidden" id="mov-medicamento-id" />
+        <input type="hidden" id="mov-tipo" />
+
+        <p><strong id="mov-nombre-medicamento"></strong></p>
+        <p class="subtexto">Stock actual: <span id="mov-stock-actual-texto">0</span></p>
+
+        <label for="mov-cantidad">Cantidad *</label>
+        <input type="number" id="mov-cantidad" min="1" step="1" required inputmode="numeric" autofocus />
+
+        <div id="mov-preview" class="preview-resultado oculto"></div>
+
+        <label for="mov-observaciones">Observaciones (opcional)</label>
+        <textarea id="mov-observaciones" rows="3" placeholder="Ej: entrega a guardia, devolución de sala, etc."></textarea>
+
+        <p id="movimiento-error" class="mensaje-error oculto"></p>
+
+        <div class="modal-acciones">
+          <button type="button" class="btn btn-secundario" data-cerrar-modal="modal-movimiento">Cancelar</button>
+          <button type="submit" class="btn btn-primario" id="btn-confirmar-movimiento">Confirmar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- =====================================================================
+       MODAL: HISTORIAL DE UN MEDICAMENTO PUNTUAL
+  ====================================================================== -->
+  <div id="modal-historial" class="modal-fondo oculto">
+    <div class="modal-caja">
+      <div class="modal-header">
+        <h2 id="titulo-modal-historial">Historial del medicamento</h2>
+        <button class="btn-cerrar" data-cerrar-modal="modal-historial">✕</button>
+      </div>
+      <div class="tabla-wrapper">
+        <table class="tabla">
+          <thead>
+            <tr>
+              <th>Fecha y hora</th>
+              <th>Usuario</th>
+              <th>Tipo</th>
+              <th>Cantidad</th>
+              <th>Stock resultante</th>
+              <th>Observaciones</th>
+            </tr>
+          </thead>
+          <tbody id="cuerpo-tabla-historial"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Toast simple para mensajes de éxito -->
+  <div id="toast" class="toast oculto"></div>
+
+  <!-- Configuración con la URL y la clave de Supabase (editar ese archivo) -->
+  <script src="config.js"></script>
+  <!-- Lógica de la aplicación -->
+  <script src="app.js"></script>
+</body>
+</html>
