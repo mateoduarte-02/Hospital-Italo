@@ -13,7 +13,7 @@
 //   8. Historial de un medicamento
 //   9. Alertas (vencimiento y stock bajo)
 //  10. Lector de código de barras
-//  11. Utilidades (fechas, toasts, tabs, modales)
+//  11. Utilidades (fechas, toasts, navegación, modales)
 // =========================================================================
 
 
@@ -99,7 +99,6 @@ async function manejarSesionIniciada(usuario) {
   estado.perfil = await obtenerOCrearPerfil(usuario);
 
   document.getElementById('nombre-usuario-actual').textContent = estado.perfil.nombre;
-  document.getElementById('saludo-nombre').textContent = `Hola, ${estado.perfil.nombre} 👋`;
 
   mostrarPantallaApp();
   await cargarTodo();
@@ -159,9 +158,11 @@ async function cargarTodo() {
   ]);
 
   renderizarTablaMedicamentos();
+  renderizarStatsInventario();
   renderizarAlertas();
   renderizarTablaMovimientos();
   renderizarInicio();
+  renderizarResultadosRegistrar();
 }
 
 async function cargarPerfiles() {
@@ -229,27 +230,29 @@ function renderizarTablaMedicamentos() {
     const stockBajo = Number(m.stock_actual) <= Number(m.stock_minimo);
 
     tr.innerHTML = `
-      <td>${chipEstado(m.estado)}</td>
-      <td>${escapeHtml(m.nombre_generico)}</td>
-      <td>${escapeHtml(m.nombre_comercial || '-')}</td>
+      <td>${escapeHtml(m.codigo_barras || '-')}</td>
+      <td class="nombre-medicamento">
+        <strong>${escapeHtml(m.nombre_generico)}</strong>
+        <span>${escapeHtml(m.nombre_comercial || '')}</span>
+      </td>
       <td>${escapeHtml(m.lote || '-')}</td>
       <td>${escapeHtml(m.categoria || '-')}</td>
       <td>
-        ${m.stock_actual} ${escapeHtml(m.unidad || '')}
-        ${stockBajo ? '<br><span class="chip chip-stock-bajo">Stock bajo</span>' : ''}
+        <span class="chip ${stockBajo ? 'chip-stock-bajo' : 'chip-stock-ok'}">
+          ${m.stock_actual} ${escapeHtml(m.unidad || '')}
+        </span>
       </td>
       <td>
         ${m.fecha_vencimiento ? formatearFecha(m.fecha_vencimiento) : '-'}
         ${infoVenc ? `<br><span class="chip ${infoVenc.clase}">${infoVenc.texto}</span>` : ''}
       </td>
-      <td>${etiquetaCondicion(m.condicion_almacenamiento)}</td>
-      <td>${escapeHtml(m.ubicacion || '-')}</td>
+      <td>${chipEstado(m.estado)}</td>
       <td>
         <div class="acciones-fila">
-          <button class="btn btn-ingreso btn-chico" data-accion="ingreso">+ Ingreso</button>
-          <button class="btn btn-retiro btn-chico" data-accion="retiro">- Retiro</button>
-          <button class="btn btn-secundario btn-chico" data-accion="historial">Historial</button>
-          <button class="btn btn-secundario btn-chico" data-accion="editar">Editar</button>
+          <button class="btn-circular retiro" data-accion="retiro" title="Retirar stock">−</button>
+          <button class="btn-circular ingreso" data-accion="ingreso" title="Ingresar stock">+</button>
+          <button class="btn-circular neutro" data-accion="historial" title="Ver historial">🕓</button>
+          <button class="btn-circular neutro" data-accion="editar" title="Editar medicamento">✎</button>
         </div>
       </td>
     `;
@@ -293,6 +296,33 @@ function calcularEstadoVencimiento(m) {
     return { clase: 'chip-vence-pronto', texto: `Vence en ${diffDias} días`, diffDias, critico: false };
   }
   return null;
+}
+
+// Reúne, en un solo lugar, la lógica de qué medicamentos disparan alertas
+// (de vencimiento y de stock bajo). La usan tanto la vista "Alertas Stock"
+// como las tarjetas resumen de la vista "Inventario", para no calcular lo
+// mismo dos veces de formas distintas.
+function calcularAlertas() {
+  const activos = estado.medicamentos.filter((m) => m.estado !== 'dado_de_baja');
+
+  const alertasVencimiento = activos
+    .map((m) => ({ m, info: calcularEstadoVencimiento(m) }))
+    .filter((x) => x.info !== null)
+    .sort((a, b) => a.info.diffDias - b.info.diffDias);
+
+  const alertasStock = activos
+    .filter((m) => Number(m.stock_actual) <= Number(m.stock_minimo))
+    .sort((a, b) => Number(a.stock_actual) - Number(b.stock_actual));
+
+  return { alertasVencimiento, alertasStock };
+}
+
+// Actualiza las tarjetas resumen de la parte superior de "Inventario".
+function renderizarStatsInventario() {
+  const { alertasVencimiento, alertasStock } = calcularAlertas();
+  document.getElementById('resumen-total').textContent = estado.medicamentos.length;
+  document.getElementById('resumen-stock-bajo').textContent = alertasStock.length;
+  document.getElementById('resumen-vencimiento').textContent = alertasVencimiento.length;
 }
 
 
@@ -592,13 +622,7 @@ function renderizarAlertas() {
   listaVencimiento.innerHTML = '';
   listaStock.innerHTML = '';
 
-  const activos = estado.medicamentos.filter((m) => m.estado !== 'dado_de_baja');
-
-  // --- Vencimientos ---
-  const alertasVencimiento = activos
-    .map((m) => ({ m, info: calcularEstadoVencimiento(m) }))
-    .filter((x) => x.info !== null)
-    .sort((a, b) => a.info.diffDias - b.info.diffDias);
+  const { alertasVencimiento, alertasStock } = calcularAlertas();
 
   if (alertasVencimiento.length === 0) {
     listaVencimiento.innerHTML = '<p class="subtexto">No hay medicamentos vencidos ni próximos a vencer. 👍</p>';
@@ -616,11 +640,6 @@ function renderizarAlertas() {
       listaVencimiento.appendChild(div);
     });
   }
-
-  // --- Stock bajo ---
-  const alertasStock = activos
-    .filter((m) => Number(m.stock_actual) <= Number(m.stock_minimo))
-    .sort((a, b) => Number(a.stock_actual) - Number(b.stock_actual));
 
   if (alertasStock.length === 0) {
     listaStock.innerHTML = '<p class="subtexto">Todo el stock está por encima del mínimo. 👍</p>';
@@ -643,26 +662,23 @@ function renderizarAlertas() {
   const badge = document.getElementById('badge-alertas');
   badge.textContent = total;
   badge.classList.toggle('oculto', total === 0);
-
-  // El contador de la pantalla de Inicio usa el mismo total que el badge
-  // de la pestaña de Alertas, para que ambos siempre coincidan.
-  document.getElementById('contador-alertas-inicio').textContent = total;
 }
 
 
 // =========================================================================
-// 9.5. PANTALLA DE INICIO (accesos rápidos para agilizar el turno)
+// 9.5. VISTA "REGISTRAR MOVIMIENTO" (buscador rápido + últimos movimientos)
 // =========================================================================
-// Esta pantalla es la primera que ve la enfermera al iniciar sesión.
-// Muestra 4 accesos directos a las acciones más frecuentes y un repaso
-// de los últimos movimientos, para poder confirmar de un vistazo que el
-// último ingreso/retiro quedó bien registrado.
+// Pensada para cuando la enfermera no tiene el lector de código de barras
+// a mano: busca el medicamento por nombre y, en el mismo resultado, tiene
+// los botones de ingreso/retiro sin tener que ir hasta la tabla completa
+// de inventario. También repasa los últimos movimientos registrados, para
+// poder confirmar de un vistazo que la última acción quedó bien cargada.
 
 function renderizarInicio() {
   const cuerpo = document.getElementById('lista-recientes');
   cuerpo.innerHTML = '';
 
-  const ultimos = estado.movimientos.slice(0, 5);
+  const ultimos = estado.movimientos.slice(0, 6);
 
   if (ultimos.length === 0) {
     cuerpo.innerHTML = '<p class="subtexto">Todavía no se registró ningún movimiento.</p>';
@@ -684,14 +700,47 @@ function renderizarInicio() {
   });
 }
 
-// Accesos rápidos: cada tarjeta lleva directo a la acción que representa.
-document.getElementById('acceso-ingreso-retiro').addEventListener('click', () => {
-  cambiarTab('tab-inventario');
-  document.getElementById('input-scanner').focus();
-});
-document.getElementById('acceso-alertas').addEventListener('click', () => cambiarTab('tab-alertas'));
-document.getElementById('acceso-agregar').addEventListener('click', () => abrirModalMedicamento(null));
-document.getElementById('acceso-movimientos').addEventListener('click', () => cambiarTab('tab-movimientos'));
+// Buscador de la vista "Registrar Movimiento": a medida que se escribe,
+// muestra los medicamentos que coinciden con botones grandes de
+// ingreso/retiro al lado.
+const buscadorRegistrar = document.getElementById('buscador-registrar');
+buscadorRegistrar.addEventListener('input', renderizarResultadosRegistrar);
+
+function renderizarResultadosRegistrar() {
+  const filtro = buscadorRegistrar.value.trim().toLowerCase();
+  const contenedor = document.getElementById('resultados-registrar');
+  contenedor.innerHTML = '';
+
+  if (!filtro) return;
+
+  const coincidencias = estado.medicamentos
+    .filter((m) => m.estado === 'activo')
+    .filter((m) => `${m.nombre_generico} ${m.nombre_comercial || ''} ${m.codigo_barras || ''}`.toLowerCase().includes(filtro))
+    .slice(0, 8);
+
+  if (coincidencias.length === 0) {
+    contenedor.innerHTML = '<p class="subtexto">No se encontró ningún medicamento activo con ese nombre.</p>';
+    return;
+  }
+
+  coincidencias.forEach((m) => {
+    const div = document.createElement('div');
+    div.className = 'resultado-registrar-item';
+    div.innerHTML = `
+      <div class="info">
+        <strong>${escapeHtml(m.nombre_generico)}${m.nombre_comercial ? ' (' + escapeHtml(m.nombre_comercial) + ')' : ''}</strong>
+        <span>Stock actual: ${m.stock_actual} ${escapeHtml(m.unidad || '')} · Lote ${escapeHtml(m.lote || '-')}</span>
+      </div>
+      <div class="botones">
+        <button class="btn-circular retiro" title="Retirar stock">−</button>
+        <button class="btn-circular ingreso" title="Ingresar stock">+</button>
+      </div>
+    `;
+    div.querySelector('.retiro').addEventListener('click', () => abrirModalMovimiento(m, 'retiro'));
+    div.querySelector('.ingreso').addEventListener('click', () => abrirModalMovimiento(m, 'ingreso'));
+    contenedor.appendChild(div);
+  });
+}
 
 
 // =========================================================================
@@ -730,9 +779,9 @@ function buscarPorCodigoBarras(codigo) {
     mensajeEl.textContent = `✔ Encontrado: ${encontrado.nombre_generico}`;
     mensajeEl.className = 'scanner-mensaje ok';
 
-    // Nos aseguramos de estar parados en la pestaña de inventario, y
+    // Nos aseguramos de estar parados en la vista de inventario, y
     // filtramos/resaltamos la fila del medicamento encontrado.
-    cambiarTab('tab-inventario');
+    cambiarVista('vista-inventario');
     document.getElementById('buscador-inventario').value = encontrado.nombre_generico;
     renderizarTablaMedicamentos();
 
@@ -751,17 +800,25 @@ function buscarPorCodigoBarras(codigo) {
 
 
 // =========================================================================
-// 11. UTILIDADES: tabs, modales, toasts, fechas, texto
+// 11. UTILIDADES: navegación (sidebar), modales, toasts, fechas, texto
 // =========================================================================
 
-// --- Tabs ---
-document.querySelectorAll('.tab-btn').forEach((btn) => {
-  btn.addEventListener('click', () => cambiarTab(btn.dataset.tab));
+// --- Navegación por vistas (barra lateral) ---
+const TITULOS_VISTA = {
+  'vista-inventario': 'Control de Inventario y Medicamentos',
+  'vista-registrar': 'Registrar Movimiento de Stock',
+  'vista-historial': 'Historial de Movimientos (Auditoría)',
+  'vista-alertas': 'Alertas de Stock y Vencimiento',
+};
+
+document.querySelectorAll('.nav-item').forEach((btn) => {
+  btn.addEventListener('click', () => cambiarVista(btn.dataset.vista));
 });
 
-function cambiarTab(idTab) {
-  document.querySelectorAll('.tab-btn').forEach((b) => b.classList.toggle('activa', b.dataset.tab === idTab));
-  document.querySelectorAll('.tab-panel').forEach((p) => p.classList.toggle('activa', p.id === idTab));
+function cambiarVista(idVista) {
+  document.querySelectorAll('.nav-item').forEach((b) => b.classList.toggle('activa', b.dataset.vista === idVista));
+  document.querySelectorAll('.vista').forEach((v) => v.classList.toggle('activa', v.id === idVista));
+  document.getElementById('titulo-vista').textContent = TITULOS_VISTA[idVista] || '';
 }
 
 // --- Modales ---
