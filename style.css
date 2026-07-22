@@ -1031,3 +1031,158 @@ body {
     flex: 1;
   }
 }
+
+/* ---------------------------------------------------------------------
+   RESPONSIVE CELULARES (pantallas angostas, uso con el pulgar)
+   ---------------------------------------------------------------------
+   En vez de una barra lateral, en el celular la navegación pasa a ser
+   una barra fija ABAJO de la pantalla (igual que WhatsApp, Instagram,
+   etc.): es la zona que el pulgar alcanza más cómodo sosteniendo el
+   teléfono con una mano, ideal para moverse rápido entre secciones
+   mientras se atiende a un paciente.
+--------------------------------------------------------------------- */
+@media (max-width: 700px) {
+  body {
+    font-size: 14.5px;
+  }
+
+  /* La barra lateral queda como una franja superior angosta, solo con
+     la marca y el usuario: la navegación se muestra abajo. */
+  .sidebar {
+    height: auto;
+    padding: 0;
+    justify-content: space-between;
+  }
+  .sidebar-marca {
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+  .marca-icono { font-size: 17px; }
+  .sidebar-usuario {
+    padding: 8px 12px;
+  }
+  .usuario-texto span {
+    display: none; /* "Sesión activa" no es imprescindible en pantallas chicas */
+  }
+
+  /* Barra de navegación inferior, fija, siempre visible y alcanzable
+     con el pulgar. */
+  .sidebar-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: stretch;
+    gap: 0;
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+    background: var(--sidebar-bg);
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    overflow-x: visible;
+  }
+  .nav-item {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    flex: 1;
+    padding: 6px 2px;
+    font-size: 10.5px;
+    font-weight: 700;
+    text-align: center;
+    position: relative;
+    border-radius: 10px;
+    white-space: nowrap;
+  }
+  .nav-icono {
+    font-size: 19px;
+  }
+  .nav-item .badge {
+    position: absolute;
+    top: 2px;
+    right: 14%;
+    margin-left: 0;
+  }
+
+  /* Dejamos espacio abajo de todo el contenido para que la barra fija
+     no tape el final de las tablas, formularios, etc. */
+  .contenido {
+    padding: 16px 14px calc(76px + env(safe-area-inset-bottom));
+  }
+
+  .header-vista {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 14px 14px;
+    gap: 10px;
+  }
+  .header-vista h1 {
+    font-size: 16.5px;
+  }
+  .scanner-pill {
+    width: 100%;
+    min-width: 0;
+  }
+  .scanner-mensaje {
+    padding: 4px 14px 0;
+  }
+
+  .tarjetas-resumen {
+    gap: 10px;
+  }
+  .tarjeta-resumen {
+    padding: 14px;
+    gap: 10px;
+  }
+  .resumen-valor {
+    font-size: 20px;
+  }
+
+  .barra-acciones {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .barra-acciones input[type="search"] {
+    width: 100%;
+  }
+
+  /* La tabla sigue permitiendo scroll horizontal con el dedo: es más
+     práctico en un celular que aplastar columnas hasta hacerlas
+     ilegibles. */
+  .tabla-wrapper {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .grilla-alertas {
+    gap: 14px;
+  }
+
+  /* Modales: aprovechan mejor el ancho y bajan el padding superior. */
+  .modal-fondo {
+    padding: 16px 10px calc(90px + env(safe-area-inset-bottom));
+    align-items: flex-start;
+  }
+  .modal-caja {
+    max-width: 100%;
+    border-radius: 14px;
+  }
+  .form-grid, #form-movimiento {
+    padding: 16px;
+  }
+
+  .resultado-registrar-item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .resultado-registrar-item .botones {
+    justify-content: flex-end;
+  }
+
+  .toast {
+    bottom: calc(76px + env(safe-area-inset-bottom));
+    font-size: 13.5px;
+    padding: 12px 18px;
+  }
+}
