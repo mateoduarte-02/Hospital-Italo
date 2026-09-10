@@ -38,6 +38,7 @@ const estado = {
   medicamentos: [],      // cache de la tabla "medicamentos"
   movimientos: [],       // cache de la tabla "movimientos" (con el medicamento embebido)
   perfiles: {},          // mapa { id_usuario: nombre } para mostrar nombres en la auditoría
+  gruposExpandidos: new Set(), // qué códigos de barras están "desplegados" mostrando sus lotes
 };
 
 const DIAS_ALERTA_VENCIMIENTO = 15; // días de anticipación para avisar vencimientos
@@ -161,8 +162,6 @@ async function cargarTodo() {
   renderizarStatsInventario();
   renderizarAlertas();
   renderizarTablaMovimientos();
-  renderizarInicio();
-  renderizarResultadosRegistrar();
 }
 
 async function cargarPerfiles() {
@@ -214,60 +213,179 @@ function renderizarTablaMedicamentos() {
   const cuerpo = document.getElementById('cuerpo-tabla-medicamentos');
   cuerpo.innerHTML = '';
 
-  const lista = estado.medicamentos.filter((m) => {
+  const coincideFiltro = (m) => {
     if (!filtro) return true;
     const texto = `${m.nombre_generico} ${m.nombre_comercial || ''} ${m.lote || ''} ${m.codigo_barras || ''}`.toLowerCase();
     return texto.includes(filtro);
+  };
+
+  // Agrupamos por código de barras: varias cajas/lotes del mismo PRODUCTO
+  // comparten el mismo código, así que se muestran juntas bajo un solo
+  // encabezado (con el stock total y el vencimiento más urgente), en vez
+  // de repetir el nombre del producto una vez por cada lote. Los que no
+  // tienen código cargado no se pueden agrupar, y se muestran sueltos.
+  const grupos = new Map(); // codigo_barras -> [medicamentos de ese producto]
+  const sueltos = [];
+
+  estado.medicamentos.forEach((m) => {
+    if (!m.codigo_barras) {
+      sueltos.push(m);
+      return;
+    }
+    if (!grupos.has(m.codigo_barras)) grupos.set(m.codigo_barras, []);
+    grupos.get(m.codigo_barras).push(m);
   });
 
-  document.getElementById('inventario-vacio').classList.toggle('oculto', lista.length > 0);
+  let huboResultados = false;
 
-  lista.forEach((m) => {
-    const tr = document.createElement('tr');
-    tr.dataset.id = m.id;
+  grupos.forEach((lotes, codigo) => {
+    const lotesQueCoinciden = lotes.filter(coincideFiltro);
+    if (lotesQueCoinciden.length === 0) return;
+    huboResultados = true;
 
-    const infoVenc = calcularEstadoVencimiento(m);
-    const stockBajo = Number(m.stock_actual) <= Number(m.stock_minimo);
+    if (lotes.length === 1) {
+      // Un solo lote con ese código: no aporta nada agruparlo, se
+      // muestra como una fila normal y corriente.
+      cuerpo.appendChild(crearFilaLote(lotes[0], false));
+      return;
+    }
 
-    tr.innerHTML = `
-      <td>${escapeHtml(m.codigo_barras || '-')}</td>
-      <td class="nombre-medicamento">
-        <strong>${escapeHtml(m.nombre_generico)}</strong>
-        <span>${escapeHtml(m.nombre_comercial || '')}</span>
-      </td>
-      <td>${escapeHtml(m.lote || '-')}</td>
-      <td>${escapeHtml(m.categoria || '-')}</td>
-      <td>
-        <span class="chip ${stockBajo ? 'chip-stock-bajo' : 'chip-stock-ok'}">
-          ${m.stock_actual} ${escapeHtml(m.unidad || '')}
-        </span>
-      </td>
-      <td>
-        ${m.fecha_vencimiento ? formatearFecha(m.fecha_vencimiento) : '-'}
-        ${infoVenc ? `<br><span class="chip ${infoVenc.clase}">${infoVenc.texto}</span>` : ''}
-      </td>
-      <td>${chipEstado(m.estado)}</td>
-      <td>
-        <div class="acciones-fila">
-          <button class="btn-circular retiro" data-accion="retiro" title="Retirar stock">−</button>
-          <button class="btn-circular ingreso" data-accion="ingreso" title="Ingresar stock">+</button>
-          <button class="btn-circular neutro" data-accion="historial" title="Ver historial">🕓</button>
-          <button class="btn-circular neutro" data-accion="editar" title="Editar medicamento">✎</button>
-        </div>
-      </td>
-    `;
+    // Mientras se está buscando algo, conviene mostrar el grupo ya
+    // desplegado (para no obligar a un clic extra sobre lo que se
+    // busca); si no hay búsqueda, respeta lo que el usuario haya
+    // desplegado manualmente antes.
+    const expandido = estado.gruposExpandidos.has(codigo) || !!filtro;
+    cuerpo.appendChild(crearFilaProducto(codigo, lotes, expandido));
 
-    // Conectamos los botones de la fila con sus acciones.
-    tr.querySelector('[data-accion="ingreso"]').addEventListener('click', () => abrirModalMovimiento(m, 'ingreso'));
-    tr.querySelector('[data-accion="retiro"]').addEventListener('click', () => abrirModalMovimiento(m, 'retiro'));
-    tr.querySelector('[data-accion="historial"]').addEventListener('click', () => abrirModalHistorial(m));
-    tr.querySelector('[data-accion="editar"]').addEventListener('click', () => abrirModalMedicamento(m));
-
-    cuerpo.appendChild(tr);
+    if (expandido) {
+      lotesQueCoinciden.forEach((m) => cuerpo.appendChild(crearFilaLote(m, true)));
+    }
   });
+
+  sueltos.filter(coincideFiltro).forEach((m) => {
+    huboResultados = true;
+    cuerpo.appendChild(crearFilaLote(m, false));
+  });
+
+  document.getElementById('inventario-vacio').classList.toggle('oculto', huboResultados);
 }
 
 document.getElementById('buscador-inventario').addEventListener('input', renderizarTablaMedicamentos);
+
+// Fila "producto": encabezado de un grupo de 2 o más lotes que
+// comparten el mismo código de barras. Muestra el nombre una sola vez,
+// el stock TOTAL sumado, y el vencimiento más urgente entre todos los
+// lotes (el que primero necesita atención). Se despliega/repliega
+// haciendo clic en cualquier parte de la fila.
+function crearFilaProducto(codigo, lotes, expandido) {
+  const activos = lotes.filter((m) => m.estado !== 'dado_de_baja');
+  const primero = lotes[0];
+  const stockTotal = activos.reduce((acc, m) => acc + Number(m.stock_actual), 0);
+
+  const infoVencimientos = activos
+    .map((m) => calcularEstadoVencimiento(m))
+    .filter((info) => info !== null)
+    .sort((a, b) => a.diffDias - b.diffDias);
+  const infoMasUrgente = infoVencimientos[0] || null;
+
+  const hayStockBajo = activos.some((m) => Number(m.stock_actual) <= Number(m.stock_minimo));
+  const hayVencido = infoVencimientos.some((info) => info.critico);
+
+  const tr = document.createElement('tr');
+  tr.className = 'fila-producto';
+  tr.dataset.codigo = codigo;
+
+  tr.innerHTML = `
+    <td class="nombre-medicamento">
+      <button class="btn-expandir" type="button" aria-label="Desplegar lotes">${expandido ? '▾' : '▸'}</button>
+      <strong>${escapeHtml(primero.nombre_generico)}</strong>
+      <span>${escapeHtml(primero.nombre_comercial || '')} · ${lotes.length} lotes</span>
+    </td>
+    <td>—</td>
+    <td>${escapeHtml(primero.categoria || '-')}</td>
+    <td>
+      <span class="chip ${hayStockBajo ? 'chip-stock-bajo' : 'chip-stock-ok'}">
+        <span class="stock-cantidad">${stockTotal}</span> <span class="stock-unidad">${escapeHtml(primero.unidad || '')}</span>
+      </span>
+    </td>
+    <td>${infoMasUrgente ? `<span class="chip ${infoMasUrgente.clase}">${infoMasUrgente.texto}</span>` : '—'}</td>
+    <td>${chipEstado(hayVencido ? 'vencido' : 'activo')}</td>
+    <td><span class="codigo-truncado" title="${escapeHtml(codigo)}">${escapeHtml(codigo)}</span></td>
+    <td>
+      <div class="acciones-fila">
+        <button class="btn btn-secundario btn-chico" data-accion="agregar-lote">+ Lote</button>
+      </div>
+    </td>
+  `;
+
+  tr.addEventListener('click', () => toggleGrupo(codigo));
+  tr.querySelector('[data-accion="agregar-lote"]').addEventListener('click', (e) => {
+    e.stopPropagation();
+    abrirModalMedicamento(null, codigo);
+  });
+
+  return tr;
+}
+
+// Despliega/repliega el listado de lotes de un producto agrupado.
+function toggleGrupo(codigo) {
+  if (estado.gruposExpandidos.has(codigo)) {
+    estado.gruposExpandidos.delete(codigo);
+  } else {
+    estado.gruposExpandidos.add(codigo);
+  }
+  renderizarTablaMedicamentos();
+}
+
+// Fila "lote": un medicamento puntual (una caja/lote específico). Si
+// "esHijo" es true, se está mostrando adentro de un grupo desplegado, y
+// no repite el nombre/categoría/código (ya están en el encabezado del
+// grupo, justo arriba).
+function crearFilaLote(m, esHijo) {
+  const tr = document.createElement('tr');
+  tr.dataset.id = m.id;
+  if (esHijo) tr.className = 'fila-lote-hija';
+
+  const infoVenc = calcularEstadoVencimiento(m);
+  const stockBajo = Number(m.stock_actual) <= Number(m.stock_minimo);
+
+  tr.innerHTML = `
+    <td class="nombre-medicamento">
+      ${esHijo
+        ? `<span class="lote-indent">↳ lote</span>`
+        : `<strong>${escapeHtml(m.nombre_generico)}</strong><span>${escapeHtml(m.nombre_comercial || '')}</span>`}
+    </td>
+    <td>${escapeHtml(m.lote || '-')}</td>
+    <td>${esHijo ? '' : escapeHtml(m.categoria || '-')}</td>
+    <td>
+      <span class="chip ${stockBajo ? 'chip-stock-bajo' : 'chip-stock-ok'}">
+        <span class="stock-cantidad">${m.stock_actual}</span> <span class="stock-unidad">${escapeHtml(m.unidad || '')}</span>
+      </span>
+    </td>
+    <td>
+      ${m.fecha_vencimiento ? formatearFecha(m.fecha_vencimiento) : '-'}
+      ${infoVenc ? `<br><span class="chip ${infoVenc.clase}">${infoVenc.texto}</span>` : ''}
+    </td>
+    <td>${chipEstado(m.estado)}</td>
+    <td>${esHijo ? '' : `<span class="codigo-truncado" title="${escapeHtml(m.codigo_barras || '')}">${escapeHtml(m.codigo_barras || '-')}</span>`}</td>
+    <td>
+      <div class="acciones-fila">
+        <button class="btn-circular retiro" data-accion="retiro" title="Retirar stock">−</button>
+        <button class="btn-circular ingreso" data-accion="ingreso" title="Ingresar stock">+</button>
+        <button class="btn-circular neutro" data-accion="historial" title="Ver historial">🕓</button>
+        <button class="btn-circular neutro" data-accion="editar" title="Editar medicamento">✎</button>
+      </div>
+    </td>
+  `;
+
+  // Conectamos los botones de la fila con sus acciones.
+  tr.querySelector('[data-accion="ingreso"]').addEventListener('click', () => abrirModalMovimiento(m, 'ingreso'));
+  tr.querySelector('[data-accion="retiro"]').addEventListener('click', () => abrirModalMovimiento(m, 'retiro'));
+  tr.querySelector('[data-accion="historial"]').addEventListener('click', () => abrirModalHistorial(m));
+  tr.querySelector('[data-accion="editar"]').addEventListener('click', () => abrirModalMedicamento(m));
+
+  return tr;
+}
 
 function chipEstado(estadoMed) {
   const textos = { activo: 'Activo', vencido: 'Vencido', dado_de_baja: 'Dado de baja' };
@@ -334,8 +452,11 @@ document.getElementById('btn-abrir-alta').addEventListener('click', () => abrirM
 
 // Abre el modal de medicamento. Si se pasa un medicamento existente, lo
 // abre en modo "edición" con los campos ya completados; si se pasa null,
-// lo abre vacío en modo "alta".
-function abrirModalMedicamento(medicamento, codigoPrecargado) {
+// lo abre vacío en modo "alta" (y si venimos de un escaneo, con el código
+// ya cargado y, si existe en el catálogo, el resto de los datos del
+// producto autocompletados). "datosGS1" son los datos ya extraídos de un
+// código 2D de trazabilidad (lote y vencimiento), si el escaneo los traía.
+async function abrirModalMedicamento(medicamento, codigoPrecargado, datosGS1) {
   const form = document.getElementById('form-medicamento');
   form.reset();
   document.getElementById('medicamento-error').classList.add('oculto');
@@ -359,7 +480,59 @@ function abrirModalMedicamento(medicamento, codigoPrecargado) {
   document.getElementById('med-proveedor').value = medicamento ? (medicamento.proveedor || '') : '';
   document.getElementById('med-estado').value = medicamento ? medicamento.estado : 'activo';
 
+  // --- Autocompletado desde un código 2D de trazabilidad (Trazamed) ---
+  // Si el código escaneado traía lote y/o vencimiento codificados, los
+  // completamos ya mismo. SIEMPRE quedan en un campo editable común: la
+  // idea es ahorrar la carga manual, no reemplazar la revisión humana de
+  // un dato tan importante como el vencimiento.
+  let avisoLoteVencimiento = false;
+  if (!medicamento && datosGS1) {
+    if (datosGS1.lote) {
+      document.getElementById('med-lote').value = datosGS1.lote;
+      avisoLoteVencimiento = true;
+    }
+    if (datosGS1.fechaVencimiento) {
+      document.getElementById('med-fecha-vencimiento').value = datosGS1.fechaVencimiento;
+      avisoLoteVencimiento = true;
+    }
+  }
+
   abrirModal('modal-medicamento');
+
+  // --- Autocompletado por catálogo ---
+  // Si estamos dando de alta un lote nuevo a partir de un código
+  // escaneado, buscamos si ya conocemos ese producto (porque alguna vez
+  // se cargó antes) y, de ser así, autocompletamos sus datos fijos.
+  // El stock queda en blanco a propósito: es propio de CADA lote/caja,
+  // no del producto en general.
+  let avisoCatalogo = false;
+  if (!medicamento && codigoPrecargado) {
+    const { data: catalogado } = await supabaseClient
+      .from('catalogo_medicamentos')
+      .select('*')
+      .eq('codigo_barras', codigoPrecargado)
+      .maybeSingle();
+
+    if (catalogado) {
+      document.getElementById('med-nombre-generico').value = catalogado.nombre_generico || '';
+      document.getElementById('med-nombre-comercial').value = catalogado.nombre_comercial || '';
+      document.getElementById('med-categoria').value = catalogado.categoria || '';
+      document.getElementById('med-unidad').value = catalogado.unidad || '';
+      document.getElementById('med-condicion').value = catalogado.condicion_almacenamiento || 'ambiente';
+      document.getElementById('med-proveedor').value = catalogado.proveedor || '';
+      avisoCatalogo = true;
+    }
+  }
+
+  // Un solo mensaje, resumiendo qué se autocompletó y pidiendo revisarlo
+  // antes de guardar (especialmente el vencimiento y el lote).
+  if (avisoCatalogo && avisoLoteVencimiento) {
+    mostrarToast('Datos del producto, lote y vencimiento autocompletados. Revisalos antes de guardar.');
+  } else if (avisoCatalogo) {
+    mostrarToast('Datos del producto autocompletados. Revisá lote, vencimiento y cantidad.');
+  } else if (avisoLoteVencimiento) {
+    mostrarToast('Lote y vencimiento leídos del código 2D. Revisalos antes de guardar.');
+  }
 }
 
 document.getElementById('form-medicamento').addEventListener('submit', async (e) => {
@@ -420,10 +593,11 @@ document.getElementById('form-medicamento').addEventListener('submit', async (e)
 
     cerrarModal('modal-medicamento');
     mostrarToast(esNuevo ? 'Medicamento agregado' : 'Medicamento actualizado');
+    await actualizarCatalogo(datos);
     await cargarTodo();
   } catch (err) {
     console.error(err);
-    errorEl.textContent = 'Ocurrió un error al guardar. Revisá que el código de barras no esté repetido.';
+    errorEl.textContent = 'Ocurrió un error al guardar. Revisá los datos e intentá de nuevo.';
     errorEl.classList.remove('oculto');
   }
 });
@@ -433,6 +607,30 @@ document.getElementById('form-medicamento').addEventListener('submit', async (e)
 function valorOnull(idCampo) {
   const v = document.getElementById(idCampo).value.trim();
   return v === '' ? null : v;
+}
+
+// Guarda (o actualiza) en "catalogo_medicamentos" los datos fijos del
+// producto, usando el código de barras como clave. Se llama después de
+// cada alta o edición de un medicamento. Así, la próxima vez que llegue
+// un lote nuevo del mismo producto y se escanee su código, la app ya
+// puede autocompletar estos campos (ver abrirModalMedicamento).
+// Si el medicamento no tiene código de barras cargado, no hay con qué
+// identificar el producto más adelante, así que no se guarda nada.
+async function actualizarCatalogo(datos) {
+  if (!datos.codigo_barras) return;
+
+  const { error } = await supabaseClient.from('catalogo_medicamentos').upsert({
+    codigo_barras: datos.codigo_barras,
+    nombre_generico: datos.nombre_generico,
+    nombre_comercial: datos.nombre_comercial,
+    categoria: datos.categoria,
+    unidad: datos.unidad,
+    condicion_almacenamiento: datos.condicion_almacenamiento,
+    proveedor: datos.proveedor,
+    actualizado_por: estado.usuario.id,
+  });
+
+  if (error) console.error('Error actualizando el catálogo de productos:', error);
 }
 
 
@@ -652,7 +850,7 @@ function renderizarAlertas() {
           <strong>${escapeHtml(m.nombre_generico)}</strong>
           <span>Mínimo: ${m.stock_minimo} ${escapeHtml(m.unidad || '')}</span>
         </div>
-        <div class="valor">${m.stock_actual} ${escapeHtml(m.unidad || '')}</div>
+        <div class="valor"><span class="stock-cantidad">${m.stock_actual}</span> <span class="stock-unidad">${escapeHtml(m.unidad || '')}</span></div>
       `;
       listaStock.appendChild(div);
     });
@@ -662,84 +860,6 @@ function renderizarAlertas() {
   const badge = document.getElementById('badge-alertas');
   badge.textContent = total;
   badge.classList.toggle('oculto', total === 0);
-}
-
-
-// =========================================================================
-// 9.5. VISTA "REGISTRAR MOVIMIENTO" (buscador rápido + últimos movimientos)
-// =========================================================================
-// Pensada para cuando la enfermera no tiene el lector de código de barras
-// a mano: busca el medicamento por nombre y, en el mismo resultado, tiene
-// los botones de ingreso/retiro sin tener que ir hasta la tabla completa
-// de inventario. También repasa los últimos movimientos registrados, para
-// poder confirmar de un vistazo que la última acción quedó bien cargada.
-
-function renderizarInicio() {
-  const cuerpo = document.getElementById('lista-recientes');
-  cuerpo.innerHTML = '';
-
-  const ultimos = estado.movimientos.slice(0, 6);
-
-  if (ultimos.length === 0) {
-    cuerpo.innerHTML = '<p class="subtexto">Todavía no se registró ningún movimiento.</p>';
-    return;
-  }
-
-  ultimos.forEach((mv) => {
-    const div = document.createElement('div');
-    div.className = 'item-reciente';
-    const nombreMed = mv.medicamentos ? mv.medicamentos.nombre_generico : '(medicamento eliminado)';
-    div.innerHTML = `
-      <div class="info-izq">
-        <strong>${etiquetaTipoMovimiento(mv.tipo)} — ${escapeHtml(nombreMed)}</strong>
-        <span>${escapeHtml(estado.perfiles[mv.usuario_id] || 'Usuario desconocido')} · ${mv.cantidad ?? '-'} unidades · quedó en ${mv.stock_resultante ?? '-'}</span>
-      </div>
-      <div class="info-der">${formatearFechaHora(mv.created_at)}</div>
-    `;
-    cuerpo.appendChild(div);
-  });
-}
-
-// Buscador de la vista "Registrar Movimiento": a medida que se escribe,
-// muestra los medicamentos que coinciden con botones grandes de
-// ingreso/retiro al lado.
-const buscadorRegistrar = document.getElementById('buscador-registrar');
-buscadorRegistrar.addEventListener('input', renderizarResultadosRegistrar);
-
-function renderizarResultadosRegistrar() {
-  const filtro = buscadorRegistrar.value.trim().toLowerCase();
-  const contenedor = document.getElementById('resultados-registrar');
-  contenedor.innerHTML = '';
-
-  if (!filtro) return;
-
-  const coincidencias = estado.medicamentos
-    .filter((m) => m.estado === 'activo')
-    .filter((m) => `${m.nombre_generico} ${m.nombre_comercial || ''} ${m.codigo_barras || ''}`.toLowerCase().includes(filtro))
-    .slice(0, 8);
-
-  if (coincidencias.length === 0) {
-    contenedor.innerHTML = '<p class="subtexto">No se encontró ningún medicamento activo con ese nombre.</p>';
-    return;
-  }
-
-  coincidencias.forEach((m) => {
-    const div = document.createElement('div');
-    div.className = 'resultado-registrar-item';
-    div.innerHTML = `
-      <div class="info">
-        <strong>${escapeHtml(m.nombre_generico)}${m.nombre_comercial ? ' (' + escapeHtml(m.nombre_comercial) + ')' : ''}</strong>
-        <span>Stock actual: ${m.stock_actual} ${escapeHtml(m.unidad || '')} · Lote ${escapeHtml(m.lote || '-')}</span>
-      </div>
-      <div class="botones">
-        <button class="btn-circular retiro" title="Retirar stock">−</button>
-        <button class="btn-circular ingreso" title="Ingresar stock">+</button>
-      </div>
-    `;
-    div.querySelector('.retiro').addEventListener('click', () => abrirModalMovimiento(m, 'retiro'));
-    div.querySelector('.ingreso').addEventListener('click', () => abrirModalMovimiento(m, 'ingreso'));
-    contenedor.appendChild(div);
-  });
 }
 
 
@@ -771,30 +891,127 @@ document.addEventListener('click', () => {
   if (!hayModalAbierto) inputScanner.focus();
 });
 
-function buscarPorCodigoBarras(codigo) {
-  const mensajeEl = document.getElementById('scanner-mensaje');
-  const encontrado = estado.medicamentos.find((m) => m.codigo_barras === codigo);
+// -------------------------------------------------------------------------
+// Parser de códigos GS1 (sistema de trazabilidad de medicamentos ANMAT,
+// conocido como "Trazamed").
+// -------------------------------------------------------------------------
+// Muchos medicamentos en Argentina llevan, además del código de barras
+// simple, un código 2D (DataMatrix/QR) que sigue el estándar GS1: adentro
+// del mismo código vienen comprimidos varios datos, identificados con un
+// "AI" (Application Identifier) de 2 dígitos:
+//   01 / 02  -> GTIN: el código que identifica el PRODUCTO
+//   17       -> fecha de vencimiento, en formato AAMMDD
+//   10       -> número de lote
+//   90       -> código interno adicional (en Trazamed, un número de serie)
+//
+// Según cómo esté configurado el lector, estos datos pueden venir con
+// separadores visibles (ej: ")17=260630") o todos pegados sin separador
+// visible (ej: "...17260630..."). Contemplamos los dos casos. Si el texto
+// escaneado no tiene ninguna de estas estructuras (por ejemplo, un código
+// de barras común de 13 dígitos), se lo devuelve tal cual, sin tocar nada.
+function parsearEscaneo(texto) {
+  const resultado = { codigoBarras: texto, lote: null, fechaVencimiento: null, esGS1: false };
 
-  if (encontrado) {
-    mensajeEl.textContent = `✔ Encontrado: ${encontrado.nombre_generico}`;
+  // Caso 1: formato con separadores tipo ")NN=valor)NN=valor..."
+  const paresConSeparador = [...texto.matchAll(/\)?(\d{2})=([^)]*)/g)];
+  const ais = {};
+
+  if (paresConSeparador.length > 0) {
+    paresConSeparador.forEach(([, ai, valor]) => { ais[ai] = valor; });
+    resultado.esGS1 = true;
+  } else if (/^(01|02)\d{14}/.test(texto)) {
+    // Caso 2: cadena GS1 "cruda", sin separadores visibles entre campos.
+    // El GTIN (AI 01/02) siempre mide 14 dígitos fijos, así que ese primer
+    // tramo es seguro. Lo que viene después (lote + vencimiento + serie)
+    // NO tiene un separador visible, así que sólo lo interpretamos cuando
+    // encontramos con certeza el AI 17 (fecha), que es de largo fijo (6
+    // dígitos) y nos sirve de "ancla" para no adivinar a ciegas.
+    ais['01'] = texto.slice(2, 16);
+    const resto = texto.slice(16);
+    const coincidenciaResto = resto.match(/^10(.*?)17(\d{6})(?:90(.*))?$/);
+    if (coincidenciaResto) {
+      ais['10'] = coincidenciaResto[1];
+      ais['17'] = coincidenciaResto[2];
+      if (coincidenciaResto[3]) ais['90'] = coincidenciaResto[3];
+    }
+    resultado.esGS1 = true;
+  } else {
+    return resultado; // No es un código GS1 reconocible: se devuelve tal cual.
+  }
+
+  // El GTIN de un código GS1 mide 14 dígitos, pero el mismo producto,
+  // escaneado desde su código de barras simple, tiene 13 (EAN-13). Le
+  // sacamos el dígito indicador inicial para que ambos escaneos del
+  // mismo producto siempre coincidan en el inventario y el catálogo.
+  const gtin = ais['01'] || ais['02'] || null;
+  if (gtin) {
+    resultado.codigoBarras = (gtin.length === 14 && gtin.startsWith('0')) ? gtin.slice(1) : gtin;
+  }
+
+  if (ais['10']) resultado.lote = ais['10'];
+
+  if (ais['17'] && /^\d{6}$/.test(ais['17'])) {
+    resultado.fechaVencimiento = convertirFechaGS1(ais['17']);
+  }
+
+  return resultado;
+}
+
+// Convierte una fecha GS1 en formato AAMMDD a una fecha ISO (AAAA-MM-DD).
+// GS1 usa "00" en el día cuando el vencimiento sólo se define por mes: en
+// ese caso, tomamos el último día de ese mes (así es como se interpreta
+// habitualmente un vencimiento "válido hasta fin de mes").
+function convertirFechaGS1(aammdd) {
+  const anio = 2000 + Number(aammdd.slice(0, 2));
+  const mes = Number(aammdd.slice(2, 4));
+  let dia = Number(aammdd.slice(4, 6));
+  if (dia === 0) {
+    dia = new Date(anio, mes, 0).getDate(); // día 0 del mes siguiente = último día de este mes
+  }
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${anio}-${pad(mes)}-${pad(dia)}`;
+}
+
+function buscarPorCodigoBarras(textoEscaneado) {
+  const mensajeEl = document.getElementById('scanner-mensaje');
+  const analisis = parsearEscaneo(textoEscaneado);
+  const codigo = analisis.codigoBarras;
+
+  // Como un mismo código de barras identifica un PRODUCTO, puede haber
+  // varios lotes en stock con ese mismo código (distinto lote/vencimiento
+  // cada uno). Por eso buscamos TODAS las coincidencias, no solo la
+  // primera.
+  const coincidencias = estado.medicamentos.filter((m) => m.codigo_barras === codigo);
+
+  if (coincidencias.length > 0) {
+    const nombreProducto = coincidencias[0].nombre_generico;
+    mensajeEl.textContent = coincidencias.length === 1
+      ? `✔ Encontrado: ${nombreProducto} (1 lote en stock)`
+      : `✔ Encontrado: ${nombreProducto} (${coincidencias.length} lotes en stock)`;
     mensajeEl.className = 'scanner-mensaje ok';
 
-    // Nos aseguramos de estar parados en la vista de inventario, y
-    // filtramos/resaltamos la fila del medicamento encontrado.
+    // Nos aseguramos de estar parados en la vista de inventario, dejamos
+    // el grupo de este producto desplegado, y filtramos/resaltamos TODAS
+    // las filas encontradas.
+    if (coincidencias.length > 1) estado.gruposExpandidos.add(codigo);
     cambiarVista('vista-inventario');
-    document.getElementById('buscador-inventario').value = encontrado.nombre_generico;
+    document.getElementById('buscador-inventario').value = nombreProducto;
     renderizarTablaMedicamentos();
 
-    const fila = document.querySelector(`#cuerpo-tabla-medicamentos tr[data-id="${encontrado.id}"]`);
-    if (fila) {
-      fila.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      fila.classList.add('fila-destacada');
-      setTimeout(() => fila.classList.remove('fila-destacada'), 2500);
-    }
+    coincidencias.forEach((m) => {
+      const fila = document.querySelector(`#cuerpo-tabla-medicamentos tr[data-id="${m.id}"]`);
+      if (fila) {
+        fila.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        fila.classList.add('fila-destacada');
+        setTimeout(() => fila.classList.remove('fila-destacada'), 2500);
+      }
+    });
   } else {
-    mensajeEl.textContent = `✘ No existe ningún medicamento con el código "${codigo}". Se abrió el formulario para cargarlo como nuevo.`;
+    mensajeEl.textContent = analisis.esGS1
+      ? `✘ No hay stock con el código "${codigo}". Se abrió el formulario con los datos leídos del código 2D.`
+      : `✘ No hay stock con el código "${codigo}". Se abrió el formulario para cargar un lote nuevo.`;
     mensajeEl.className = 'scanner-mensaje error';
-    abrirModalMedicamento(null, codigo);
+    abrirModalMedicamento(null, codigo, analisis);
   }
 }
 
@@ -806,7 +1023,6 @@ function buscarPorCodigoBarras(codigo) {
 // --- Navegación por vistas (barra lateral) ---
 const TITULOS_VISTA = {
   'vista-inventario': 'Control de Inventario y Medicamentos',
-  'vista-registrar': 'Registrar Movimiento de Stock',
   'vista-historial': 'Historial de Movimientos (Auditoría)',
   'vista-alertas': 'Alertas de Stock y Vencimiento',
 };

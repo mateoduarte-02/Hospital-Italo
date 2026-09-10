@@ -64,9 +64,6 @@
         <button class="nav-item activa" data-vista="vista-inventario">
           <span class="nav-icono">📦</span> Inventario
         </button>
-        <button class="nav-item" data-vista="vista-registrar">
-          <span class="nav-icono">🔄</span> Registrar Movimiento
-        </button>
         <button class="nav-item" data-vista="vista-historial">
           <span class="nav-icono">🕓</span> Historial
         </button>
@@ -143,13 +140,13 @@
             <table class="tabla" id="tabla-medicamentos">
               <thead>
                 <tr>
-                  <th>Código / barras</th>
                   <th>Medicamento</th>
                   <th>Lote</th>
                   <th>Categoría</th>
                   <th>Stock actual</th>
                   <th>Vencimiento</th>
                   <th>Estado</th>
+                  <th>Código</th>
                   <th>Acciones</th>
                 </tr>
               </thead>
@@ -158,24 +155,6 @@
               </tbody>
             </table>
             <p id="inventario-vacio" class="texto-vacio oculto">No hay medicamentos cargados todavía.</p>
-          </div>
-        </section>
-
-        <!-- =================== VISTA: REGISTRAR MOVIMIENTO =================== -->
-        <section id="vista-registrar" class="vista">
-          <div class="panel-registrar">
-            <h2>¿Qué medicamento vas a registrar?</h2>
-            <p class="subtexto">
-              Escaneá el código de barras arriba, o buscalo por nombre acá abajo.
-              Vas a poder registrar el ingreso o el retiro de stock en un solo paso.
-            </p>
-            <input type="search" id="buscador-registrar" placeholder="Buscar medicamento por nombre..." class="input-grande" />
-            <div id="resultados-registrar" class="resultados-registrar"></div>
-          </div>
-
-          <div class="panel-recientes">
-            <h2>Últimos movimientos</h2>
-            <div id="lista-recientes" class="lista-recientes"></div>
           </div>
         </section>
 
