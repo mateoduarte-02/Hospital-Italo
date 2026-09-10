@@ -594,6 +594,21 @@ body {
   color: var(--color-texto-secundario);
 }
 
+/* El código de barras es un dato técnico para que la app busque, no algo
+   que una persona necesite leer entero de un vistazo. Por eso va chico,
+   en gris, y truncado con "..." si es muy largo (como los códigos 2D de
+   trazabilidad) — el valor completo se puede ver dejando el mouse encima. */
+.codigo-truncado {
+  display: inline-block;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+  font-size: 12px;
+  color: var(--color-texto-secundario);
+}
+
 .texto-vacio {
   text-align: center;
   padding: 32px;
@@ -626,6 +641,19 @@ body {
 .chip-dado_de_baja { background: var(--color-neutro-fondo); color: var(--color-neutro); }
 
 .chip-stock-ok { background: var(--color-ok-fondo); color: var(--color-ok); }
+
+/* Dentro del chip de stock, la cantidad va más marcada y la unidad más
+   discreta, para que no se lean como un solo número pegado (ej: una
+   unidad mal cargada como "500 mg" no debería confundirse con la
+   cantidad real, ej: "8"). */
+.stock-cantidad {
+  font-weight: 800;
+}
+.stock-unidad {
+  font-weight: 500;
+  opacity: 0.75;
+  font-size: 0.92em;
+}
 .chip-stock-bajo { background: var(--color-alerta-fondo); color: var(--color-alerta); }
 .chip-vence-pronto { background: var(--color-alerta-fondo); color: var(--color-alerta); }
 
@@ -644,63 +672,40 @@ body {
 }
 
 /* ---------------------------------------------------------------------
-   VISTA: REGISTRAR MOVIMIENTO
+   INVENTARIO AGRUPADO POR PRODUCTO (filas desplegables)
+   ---------------------------------------------------------------------
+   Varios lotes (cajas) del mismo producto comparten código de barras, así
+   que se agrupan bajo una sola fila resumen en vez de repetir el nombre
+   una vez por lote. Esa fila se puede desplegar para ver el detalle de
+   cada lote.
 --------------------------------------------------------------------- */
-.panel-registrar {
-  background: var(--color-superficie);
-  border: 1px solid var(--color-borde);
-  border-radius: var(--radio);
-  box-shadow: var(--sombra);
-  padding: 24px;
-  margin-bottom: 22px;
+.fila-producto {
+  cursor: pointer;
+  background: var(--color-fondo);
 }
-.panel-registrar h2 {
-  margin: 0 0 6px;
-  font-size: 17px;
+.fila-producto:hover {
+  background: #eef2f1;
 }
 
-.input-grande {
-  width: 100%;
-  margin-top: 14px;
-  padding: 14px 16px;
-  border: 1px solid var(--color-borde);
-  border-radius: 10px;
-  font-size: 15px;
-  font-family: inherit;
-}
-.input-grande:focus {
-  outline: 2px solid var(--color-primario);
-  border-color: var(--color-primario);
+.btn-expandir {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--color-texto-secundario);
+  padding: 2px 4px;
+  margin-right: 2px;
+  vertical-align: middle;
 }
 
-.resultados-registrar {
-  margin-top: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.fila-lote-hija {
+  background: #fbfcfc;
 }
-
-.resultado-registrar-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 14px;
-  border: 1px solid var(--color-borde);
-  border-radius: 10px;
-  flex-wrap: wrap;
-}
-.resultado-registrar-item .info strong {
+.lote-indent {
   display: block;
-  font-size: 14px;
-}
-.resultado-registrar-item .info span {
   font-size: 12.5px;
   color: var(--color-texto-secundario);
-}
-.resultado-registrar-item .botones {
-  display: flex;
-  gap: 8px;
+  padding-left: 18px;
 }
 
 /* ---------------------------------------------------------------------
@@ -772,51 +777,6 @@ body {
 .item-alerta .valor {
   font-weight: 700;
   font-size: 13px;
-  white-space: nowrap;
-}
-
-/* ---------------------------------------------------------------------
-   ÚLTIMOS MOVIMIENTOS (vista Registrar Movimiento)
---------------------------------------------------------------------- */
-.panel-recientes {
-  background: var(--color-superficie);
-  border: 1px solid var(--color-borde);
-  border-radius: var(--radio);
-  padding: 18px;
-  box-shadow: var(--sombra);
-}
-.panel-recientes h2 {
-  font-size: 15px;
-  margin: 0 0 12px;
-}
-
-.lista-recientes {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.item-reciente {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: var(--color-fondo);
-  font-size: 13.5px;
-}
-.item-reciente .info-izq strong {
-  display: block;
-}
-.item-reciente .info-izq span {
-  font-size: 12px;
-  color: var(--color-texto-secundario);
-}
-.item-reciente .info-der {
-  text-align: right;
-  font-size: 12px;
-  color: var(--color-texto-secundario);
   white-space: nowrap;
 }
 
@@ -1170,14 +1130,6 @@ body {
   }
   .form-grid, #form-movimiento {
     padding: 16px;
-  }
-
-  .resultado-registrar-item {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .resultado-registrar-item .botones {
-    justify-content: flex-end;
   }
 
   .toast {
