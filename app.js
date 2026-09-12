@@ -473,7 +473,7 @@ async function abrirModalMedicamento(medicamento, codigoPrecargado, datosGS1) {
   document.getElementById('med-unidad').value = medicamento ? (medicamento.unidad || '') : '';
   document.getElementById('med-stock-actual').value = medicamento ? medicamento.stock_actual : 0;
   document.getElementById('med-stock-minimo').value = medicamento ? medicamento.stock_minimo : 0;
-  document.getElementById('med-fecha-ingreso').value = medicamento ? (medicamento.fecha_ingreso || '') : '';
+  document.getElementById('med-fecha-ingreso').value = medicamento ? (medicamento.fecha_ingreso || '') : fechaDeHoyISO();
   document.getElementById('med-fecha-vencimiento').value = medicamento ? (medicamento.fecha_vencimiento || '') : '';
   document.getElementById('med-condicion').value = medicamento ? medicamento.condicion_almacenamiento : 'ambiente';
   document.getElementById('med-ubicacion').value = medicamento ? (medicamento.ubicacion || '') : '';
@@ -886,9 +886,20 @@ inputScanner.addEventListener('keydown', (e) => {
 // para que el/la usuario/a pueda escanear sin tener que hacer clic antes.
 // Si se abre un modal, dejamos de forzar el foco (para no interrumpir al
 // que esté escribiendo en un formulario).
-document.addEventListener('click', () => {
+document.addEventListener('click', (e) => {
   const hayModalAbierto = document.querySelector('.modal-fondo:not(.oculto)');
-  if (!hayModalAbierto) inputScanner.focus();
+  if (hayModalAbierto) return;
+
+  // Si el clic fue sobre otro campo editable (un buscador, un input de
+  // un formulario, etc.), respetamos esa elección: la persona quiere
+  // escribir ahí, no en el escáner. Sólo devolvemos el foco al escáner
+  // cuando se hizo clic en una parte "neutra" de la página (el fondo,
+  // una fila de la tabla, un botón que no sea de texto, etc.).
+  const elementoClickeado = e.target;
+  const esCampoEditable = elementoClickeado.closest('input, textarea, select');
+  if (esCampoEditable) return;
+
+  inputScanner.focus();
 });
 
 // -------------------------------------------------------------------------
@@ -904,23 +915,35 @@ document.addEventListener('click', () => {
 //   10       -> número de lote
 //   90       -> código interno adicional (en Trazamed, un número de serie)
 //
-// Según cómo esté configurado el lector, estos datos pueden venir con
-// separadores visibles (ej: ")17=260630") o todos pegados sin separador
-// visible (ej: "...17260630..."). Contemplamos los dos casos. Si el texto
-// escaneado no tiene ninguna de estas estructuras (por ejemplo, un código
-// de barras común de 13 dígitos), se lo devuelve tal cual, sin tocar nada.
+// Según cómo esté configurado el lector, estos datos pueden venir en
+// distintos "formatos de texto". Contemplamos tres variantes, de la más
+// a la menos confiable:
+//   1) Formato estándar con paréntesis reales: "(01)valor(17)valor..."
+//   2) Una variante con separadores: ")NN=valor)NN=valor..."
+//   3) Todo pegado, sin ningún separador visible: "...17260630..."
+// Si el texto escaneado no tiene ninguna de estas estructuras (por
+// ejemplo, un código de barras común de 13 dígitos), se lo devuelve tal
+// cual, sin tocar nada.
 function parsearEscaneo(texto) {
   const resultado = { codigoBarras: texto, lote: null, fechaVencimiento: null, esGS1: false };
-
-  // Caso 1: formato con separadores tipo ")NN=valor)NN=valor..."
-  const paresConSeparador = [...texto.matchAll(/\)?(\d{2})=([^)]*)/g)];
   const ais = {};
 
-  if (paresConSeparador.length > 0) {
+  // Caso 1: formato estándar GS1, con paréntesis reales delimitando cada
+  // AI: "(02)07792366314459(17)290607(10)20240607". Es el más confiable,
+  // porque el paréntesis marca sin ambigüedad dónde termina cada valor.
+  const paresConParentesis = [...texto.matchAll(/\((\d{2,4})\)([^(]*)/g)];
+
+  // Caso 2: variante con separadores tipo ")NN=valor)NN=valor..."
+  const paresConSeparador = [...texto.matchAll(/\)?(\d{2})=([^)]*)/g)];
+
+  if (paresConParentesis.length > 0) {
+    paresConParentesis.forEach(([, ai, valor]) => { ais[ai] = valor.trim(); });
+    resultado.esGS1 = true;
+  } else if (paresConSeparador.length > 0) {
     paresConSeparador.forEach(([, ai, valor]) => { ais[ai] = valor; });
     resultado.esGS1 = true;
   } else if (/^(01|02)\d{14}/.test(texto)) {
-    // Caso 2: cadena GS1 "cruda", sin separadores visibles entre campos.
+    // Caso 3: cadena GS1 "cruda", sin separadores visibles entre campos.
     // El GTIN (AI 01/02) siempre mide 14 dígitos fijos, así que ese primer
     // tramo es seguro. Lo que viene después (lote + vencimiento + serie)
     // NO tiene un separador visible, así que sólo lo interpretamos cuando
@@ -1099,6 +1122,21 @@ function renderizarTablaMovimientos() {
 document.getElementById('buscador-movimientos').addEventListener('input', renderizarTablaMovimientos);
 
 // --- Fechas ---
+
+// Devuelve la fecha de HOY según el reloj de la computadora, en el
+// formato que espera un <input type="date"> (AAAA-MM-DD). Se usa para
+// completar sola la "fecha de ingreso" al dar de alta un medicamento
+// nuevo. Ojo: se arma a mano con año/mes/día locales (en vez de usar
+// toISOString(), que trabaja en UTC) para que no se corra un día en
+// husos horarios donde eso podría pasar.
+function fechaDeHoyISO() {
+  const hoy = new Date();
+  const anio = hoy.getFullYear();
+  const mes = String(hoy.getMonth() + 1).padStart(2, '0');
+  const dia = String(hoy.getDate()).padStart(2, '0');
+  return `${anio}-${mes}-${dia}`;
+}
+
 function formatearFecha(fechaIso) {
   if (!fechaIso) return '-';
   const [anio, mes, dia] = fechaIso.split('-');
