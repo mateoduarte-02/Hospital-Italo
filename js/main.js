@@ -13,6 +13,7 @@
 //   medicamentos     -> alta y edición de medicamentos
 //   movimientos      -> ingreso / retiro de stock
 //   scanner          -> lector de código de barras / QR
+//   usuarios         -> aprobar/rechazar cuentas y asignar admins
 //
 // La mayoría de estos módulos conectan sus propios botones y formularios
 // apenas se importan (por eso hay que importarlos todos acá, aunque no
@@ -25,5 +26,6 @@ import './historial.js';
 import './medicamentos.js';
 import './movimientos.js';
 import './scanner.js';
+import './usuarios.js';
 
 iniciarApp();

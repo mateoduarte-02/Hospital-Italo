@@ -8,6 +8,7 @@ const TITULOS_VISTA = {
   'vista-inventario': 'Control de Inventario y Medicamentos',
   'vista-historial': 'Historial de Movimientos (Auditoría)',
   'vista-alertas': 'Alertas de Stock y Vencimiento',
+  'vista-usuarios': 'Gestión de Usuarios',
 };
 
 export function cambiarVista(idVista) {

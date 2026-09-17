@@ -7,15 +7,17 @@ import { mostrarToast } from './utils.js';
 import { renderizarTablaMedicamentos, renderizarStatsInventario } from './inventario.js';
 import { renderizarAlertas } from './alertas.js';
 import { renderizarTablaMovimientos } from './historial.js';
+import { cargarUsuarios } from './usuarios.js';
 
-// Trae de Supabase las 3 tablas que necesitamos y vuelve a dibujar toda
-// la pantalla. La llamamos al iniciar sesión y después de cada operación
-// que modifique datos (alta, ingreso, retiro, ajuste).
+// Trae de Supabase las tablas que necesitamos y vuelve a dibujar toda la
+// pantalla. La llamamos al iniciar sesión y después de cada operación que
+// modifique datos (alta, ingreso, retiro, ajuste, aprobar un usuario).
 export async function cargarTodo() {
   await Promise.all([
     cargarPerfiles(),
     cargarMedicamentos(),
     cargarMovimientos(),
+    cargarUsuarios(), // no hace nada si quien está logueado no es admin
   ]);
 
   renderizarTablaMedicamentos();

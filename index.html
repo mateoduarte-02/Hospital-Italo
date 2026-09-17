@@ -48,6 +48,55 @@
 
         <p id="login-error" class="mensaje-error oculto" role="alert"></p>
       </form>
+
+      <p class="login-alternar" id="ir-a-registro-wrap">
+        ¿No tenés cuenta?
+        <button type="button" id="btn-ir-a-registro" class="btn-link">Crear cuenta</button>
+      </p>
+
+      <!-- Formulario de alta de cuenta nueva: crea el login en Supabase
+           Auth, pero la cuenta queda "pendiente" hasta que un admin la
+           apruebe desde la vista Usuarios (ver js/usuarios.js). No
+           permite hacer nada en el sistema todavía. -->
+      <form id="form-registro" class="oculto" autocomplete="on">
+        <label for="registro-nombre">Nombre</label>
+        <input type="text" id="registro-nombre" placeholder="Ej: María López" required autocomplete="name" />
+
+        <label for="registro-email">Email</label>
+        <input type="email" id="registro-email" placeholder="maria@gmail.com" required autocomplete="username" />
+
+        <label for="registro-password">Contraseña</label>
+        <input type="password" id="registro-password" placeholder="Mínimo 6 caracteres" required minlength="6" autocomplete="new-password" />
+
+        <button type="submit" class="btn btn-primario btn-ancho">Crear cuenta</button>
+
+        <p id="registro-error" class="mensaje-error oculto" role="alert"></p>
+        <p id="registro-exito" class="mensaje-exito oculto" role="status"></p>
+      </form>
+
+      <p class="login-alternar oculto" id="volver-a-login-wrap">
+        <button type="button" id="btn-ir-a-login" class="btn-link">Volver a iniciar sesión</button>
+      </p>
+    </div>
+  </section>
+
+  <!-- =====================================================================
+       PANTALLA: CUENTA PENDIENTE / RECHAZADA
+       Se muestra en vez de la app cuando el usuario ya inició sesión pero
+       todavía no fue aprobado por un administrador (o fue rechazado).
+  ====================================================================== -->
+  <section id="pantalla-pendiente" class="pantalla-login oculto">
+    <div class="tarjeta-login">
+      <div class="login-header">
+        <span class="login-icono" aria-hidden="true" id="pendiente-icono">⏳</span>
+        <h1 id="pendiente-titulo">Cuenta pendiente de aprobación</h1>
+        <p id="pendiente-texto">
+          Tu cuenta ya se creó, pero todavía no fue habilitada por un
+          administrador. Pedile a alguien con acceso de administrador que
+          te apruebe desde "Usuarios", y volvé a entrar.
+        </p>
+      </div>
+      <button id="btn-logout-pendiente" class="btn btn-secundario btn-ancho">Cerrar sesión</button>
     </div>
   </section>
 
@@ -75,6 +124,10 @@
         <button class="nav-item" data-vista="vista-alertas">
           <span class="nav-icono">⚠️</span> Alertas Stock
           <span id="badge-alertas" class="badge oculto">0</span>
+        </button>
+        <button class="nav-item oculto" data-vista="vista-usuarios" id="nav-usuarios">
+          <span class="nav-icono">👥</span> Usuarios
+          <span id="badge-usuarios-pendientes" class="badge oculto">0</span>
         </button>
       </nav>
 
@@ -201,6 +254,29 @@
               <p class="subtexto">Medicamentos cuyo stock actual está en o por debajo del mínimo definido.</p>
               <div id="lista-alertas-stock" class="lista-alertas"></div>
             </div>
+          </div>
+        </section>
+
+        <!-- =================== VISTA: USUARIOS (solo admin) =================== -->
+        <section id="vista-usuarios" class="vista">
+          <p class="subtexto">
+            Cuentas nuevas que se registran quedan "pendientes" hasta que las
+            apruebes acá. Un usuario pendiente o rechazado no puede ver ni
+            tocar nada del inventario, aunque haya iniciado sesión.
+          </p>
+          <div class="tabla-wrapper">
+            <table class="tabla">
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Email</th>
+                  <th>Rol</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="cuerpo-tabla-usuarios"></tbody>
+            </table>
           </div>
         </section>
 
