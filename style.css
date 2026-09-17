@@ -241,6 +241,33 @@ body {
   border-color: var(--color-critico);
 }
 
+/* Selector Con PR / Sin PR (receta médica), mismo estilo de botones que el
+   de Ingreso/Retiro pero con el color de marca en vez de verde/rojo, para
+   no confundirlo visualmente con ese otro toggle. Solo se muestra cuando
+   el movimiento es un retiro (ver aplicarTipoMovimiento en movimientos.js). */
+#mov-pr-seccion {
+  margin-bottom: 16px;
+}
+.mov-pr-boton {
+  flex: 1;
+  padding: 10px;
+  border: 2px solid var(--color-borde);
+  border-radius: 8px;
+  background: var(--color-superficie);
+  color: var(--color-texto-secundario);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.mov-pr-boton.activo {
+  background: var(--color-primario-claro);
+  color: var(--color-primario-oscuro);
+  border-color: var(--color-primario);
+}
+#mov-pr-campos {
+  margin-top: 12px;
+}
+
 /* Botones circulares: usados en la tabla de inventario para ingreso,
    retiro, historial y editar. Compactos, con buen contraste de color
    para reconocerlos de un vistazo sin tener que leer el texto. */
@@ -691,6 +718,11 @@ body {
 .chip-activo { background: var(--color-ok-fondo); color: var(--color-ok); }
 .chip-vencido { background: var(--color-critico-fondo); color: var(--color-critico); }
 .chip-dado_de_baja { background: var(--color-neutro-fondo); color: var(--color-neutro); }
+
+/* Marca si un retiro fue con receta médica (PR) o sin ella, en la
+   columna "Tipo" del historial (ver historial.js). */
+.chip-pr-si { background: var(--color-primario-claro); color: var(--color-primario-oscuro); }
+.chip-pr-no { background: var(--color-neutro-fondo); color: var(--color-neutro); }
 
 .chip-stock-ok { background: var(--color-ok-fondo); color: var(--color-ok); }
 

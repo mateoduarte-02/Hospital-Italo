@@ -338,6 +338,23 @@
 
         <div id="mov-preview" class="preview-resultado oculto"></div>
 
+        <div id="mov-pr-seccion" class="oculto">
+          <input type="hidden" id="mov-pr" value="no" />
+          <label>¿Con receta (PR)?</label>
+          <div class="mov-tipo-toggle" role="group" aria-label="Con o sin receta">
+            <button type="button" class="mov-pr-boton" data-pr="no">Sin PR</button>
+            <button type="button" class="mov-pr-boton" data-pr="si">Con PR</button>
+          </div>
+
+          <div id="mov-pr-campos" class="oculto">
+            <label for="mov-pr-paciente">Paciente *</label>
+            <input type="text" id="mov-pr-paciente" placeholder="Nombre y apellido del paciente" />
+
+            <label for="mov-pr-medico">Médico *</label>
+            <input type="text" id="mov-pr-medico" placeholder="Nombre y apellido del médico" />
+          </div>
+        </div>
+
         <label for="mov-observaciones">Observaciones (opcional)</label>
         <textarea id="mov-observaciones" rows="3" placeholder="Ej: entrega a guardia, devolución de sala, etc."></textarea>
 
@@ -383,9 +400,11 @@
   <!-- Toast simple para mensajes de éxito / error -->
   <div id="toast" class="toast oculto"></div>
 
-  <!-- Configuración con la URL y la clave de Supabase (editar ese archivo) -->
-  <script src="config.js"></script>
-  <!-- Lógica de la aplicación -->
-  <script src="app.js"></script>
+  <!--
+    Lógica de la aplicación, dividida en módulos por tema dentro de js/
+    (ver js/main.js). config.js (la URL y la clave de Supabase que hay
+    que editar) se importa desde ahí, no hace falta otro <script> acá.
+  -->
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>

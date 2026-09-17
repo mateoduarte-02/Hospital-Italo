@@ -5,8 +5,9 @@ de un hospital pequeño. Frontend 100% estático (HTML + CSS + JS puro, sin
 Node ni build tools) conectado directo a **Supabase** (Postgres en la nube)
 para la base de datos y la autenticación.
 
-No hace falta instalar nada ni usar la consola: una vez configurado,
-la app se abre haciendo doble clic en `index.html`.
+No hace falta instalar nada ni usar la consola, pero **sí hace falta un
+servidor local simple** para verla en tu computadora (no alcanza con doble
+clic en `index.html`, ver la Sección 6).
 
 ---
 
@@ -17,7 +18,7 @@ la app se abre haciendo doble clic en `index.html`.
 | `schema.sql`    | Script para crear las tablas y la seguridad en Supabase (se corre 1 sola vez) |
 | `index.html`    | Estructura de la página (login + inventario + alertas + auditoría)   |
 | `style.css`     | Estilos visuales                                                      |
-| `app.js`        | Toda la lógica: login, alta, stock, auditoría, alertas, escáner       |
+| `js/`           | Toda la lógica de la app, dividida en un archivo por tema (login, inventario, alertas, escáner, etc. — ver `js/main.js`) |
 | `config.js`     | **Acá pegás tu URL y tu clave de Supabase** (es lo único que editás)  |
 | `README.md`     | Este instructivo                                                      |
 
@@ -142,9 +143,20 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9......";
 
 ## 6. Usar la aplicación
 
-1. Hacé doble clic en `index.html`. Se va a abrir en tu navegador (Chrome,
-   Edge, Firefox, etc.). No hace falta ningún servidor ni conexión por
-   consola.
+1. El código de `js/` usa módulos de JavaScript (`import`/`export`), y por
+   seguridad **los navegadores no permiten cargar módulos abriendo el
+   archivo directo con doble clic** (`file://...`) — hace falta que la
+   página se sirva por `http://`. Para probarla en tu computadora, la
+   forma más simple es:
+   - Si usás **VS Code**: instalá la extensión "Live Server", click derecho
+     sobre `index.html` → "Open with Live Server".
+   - O, si tenés Python instalado, abrí una terminal en esta carpeta y
+     corré `python3 -m http.server 8000`, y después abrí
+     `http://localhost:8000` en el navegador.
+
+   Esto es solo para probarla en tu compu: si la subís a GitHub Pages (o
+   cualquier hosting), ya se sirve por `http://`/`https://` sola, sin que
+   tengas que hacer nada de esto.
 2. Iniciá sesión con:
    - **Email:** `juan@gmail.com`
    - **Contraseña:** `12345`

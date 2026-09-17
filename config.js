@@ -22,5 +22,5 @@
 //   schema.sql, que son las que realmente protegen los datos.
 // =========================================================================
 
-const SUPABASE_URL = "https://ydsxbteoraiwowrrlzlz.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlkc3hidGVvcmFpd293cnJsemx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ2ODAwODksImV4cCI6MjEwMDI1NjA4OX0.yXH1cSolLwtvDanoCUMybgkoQ3D_vACdCXruxM2fUsg";
+export const SUPABASE_URL = "https://ydsxbteoraiwowrrlzlz.supabase.co";
+export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlkc3hidGVvcmFpd293cnJsemx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ2ODAwODksImV4cCI6MjEwMDI1NjA4OX0.yXH1cSolLwtvDanoCUMybgkoQ3D_vACdCXruxM2fUsg";
