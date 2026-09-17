@@ -1,0 +1,14 @@
+{
+  "name": "hospital-italo-scripts-testeo",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Scripts de Node para probar el flujo de escaneo (y otras acciones) contra la API de Supabase sin depender del lector físico ni de la UI.",
+  "type": "commonjs",
+  "scripts": {
+    "escaneo": "node scripts/simular-escaneo.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
+    "dotenv": "^16.4.5"
+  }
+}

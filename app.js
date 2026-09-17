@@ -535,6 +535,44 @@ async function abrirModalMedicamento(medicamento, codigoPrecargado, datosGS1) {
   }
 }
 
+// Evita el error más común al cargar medicamentos "a mano": que un mismo
+// producto (ej. "Polivitaminico") termine repartido en dos registros
+// distintos con nombres o códigos de barras que no coinciden entre sí.
+// El código de barras es lo que identifica al PRODUCTO para agrupar sus
+// lotes (ver renderizarTablaMedicamentos), así que:
+//   - si el código de barras ya está usado por otro nombre, es un
+//     conflicto (¿es el mismo producto con el nombre mal tipeado, o un
+//     código repetido por error?).
+//   - si el nombre ya existe pero con otro código de barras, también es
+//     un conflicto (probablemente el mismo producto, cargado de nuevo sin
+//     usar el código que ya tenía).
+// En ambos casos se bloquea el guardado con un mensaje explicando qué
+// registro ya existe, en vez de dejar crear el duplicado silenciosamente.
+// Esto es una validación de la app, no un constraint de la base de datos:
+// no reemplaza agregar una restricción real en schema.sql si se quiere
+// una garantía más fuerte.
+function buscarConflictoDeProducto(datos, idActual) {
+  const nombreNuevo = datos.nombre_generico.trim().toLowerCase();
+  const otros = estado.medicamentos.filter((m) => m.id !== idActual);
+
+  if (datos.codigo_barras) {
+    const mismoCodigo = otros.find((m) => m.codigo_barras === datos.codigo_barras);
+    if (mismoCodigo && mismoCodigo.nombre_generico.trim().toLowerCase() !== nombreNuevo) {
+      return `Ese código de barras ya está cargado como "${mismoCodigo.nombre_generico}". Usá exactamente ese mismo nombre para que los lotes se agrupen bien (o cambiá el código si en realidad es un producto distinto).`;
+    }
+  }
+
+  const mismoNombreOtroCodigo = otros.find((m) =>
+    m.nombre_generico.trim().toLowerCase() === nombreNuevo &&
+    (m.codigo_barras || null) !== (datos.codigo_barras || null)
+  );
+  if (mismoNombreOtroCodigo) {
+    return `Ya existe un producto llamado "${mismoNombreOtroCodigo.nombre_generico}" con el código de barras "${mismoNombreOtroCodigo.codigo_barras || 'sin código'}". Si es el mismo producto, usá ese mismo código en vez de uno nuevo (así queda como un lote más, no como un producto aparte).`;
+  }
+
+  return null;
+}
+
 document.getElementById('form-medicamento').addEventListener('submit', async (e) => {
   e.preventDefault();
   const errorEl = document.getElementById('medicamento-error');
@@ -559,6 +597,13 @@ document.getElementById('form-medicamento').addEventListener('submit', async (e)
     proveedor: valorOnull('med-proveedor'),
     estado: document.getElementById('med-estado').value,
   };
+
+  const conflicto = buscarConflictoDeProducto(datos, id || null);
+  if (conflicto) {
+    errorEl.textContent = conflicto;
+    errorEl.classList.remove('oculto');
+    return;
+  }
 
   try {
     if (esNuevo) {
@@ -647,10 +692,32 @@ function abrirModalMovimiento(medicamento, tipo) {
   document.getElementById('movimiento-error').classList.add('oculto');
 
   document.getElementById('mov-medicamento-id').value = medicamento.id;
-  document.getElementById('mov-tipo').value = tipo;
   document.getElementById('mov-nombre-medicamento').textContent =
     `${medicamento.nombre_generico}${medicamento.nombre_comercial ? ' (' + medicamento.nombre_comercial + ')' : ''}`;
   document.getElementById('mov-stock-actual-texto').textContent = `${medicamento.stock_actual} ${medicamento.unidad || ''}`;
+
+  // El tipo con el que se abre es solo el punto de partida: viene
+  // predefinido cuando se entra desde los botones +/− de la tabla, o es
+  // una suposición (retiro) cuando entra desde el escáner. En cualquier
+  // caso, el toggle de abajo deja cambiarlo antes de confirmar.
+  aplicarTipoMovimiento(tipo);
+
+  document.getElementById('mov-preview').classList.add('oculto');
+
+  abrirModal('modal-movimiento');
+  document.getElementById('mov-cantidad').focus();
+}
+
+// Aplica el tipo de movimiento elegido (ingreso/retiro) a todo lo que
+// depende de él: el campo oculto que se manda al guardar, el estado
+// visual del toggle, el título del modal y el color/texto del botón de
+// confirmar. Se usa tanto al abrir el modal como al tocar el toggle.
+function aplicarTipoMovimiento(tipo) {
+  document.getElementById('mov-tipo').value = tipo;
+
+  document.querySelectorAll('.mov-tipo-boton').forEach((btn) => {
+    btn.classList.toggle('activo', btn.dataset.tipo === tipo);
+  });
 
   document.getElementById('titulo-modal-movimiento').textContent =
     tipo === 'ingreso' ? 'Ingreso de stock' : 'Retiro de stock';
@@ -659,17 +726,19 @@ function abrirModalMovimiento(medicamento, tipo) {
   document.getElementById('btn-confirmar-movimiento').textContent =
     tipo === 'ingreso' ? 'Confirmar ingreso' : 'Confirmar retiro';
 
-  document.getElementById('mov-preview').classList.add('oculto');
-
-  abrirModal('modal-movimiento');
-  document.getElementById('mov-cantidad').focus();
+  actualizarPreviewMovimiento();
 }
 
-// Actualiza en vivo, mientras se escribe la cantidad, cuál va a quedar el
-// stock después del movimiento. Esta retroalimentación inmediata es la
-// que ayuda a evitar errores: si alguien se equivoca de cero (ej. pone
-// "50" en vez de "5"), lo nota ANTES de confirmar, no después.
-document.getElementById('mov-cantidad').addEventListener('input', () => {
+document.querySelectorAll('.mov-tipo-boton').forEach((btn) => {
+  btn.addEventListener('click', () => aplicarTipoMovimiento(btn.dataset.tipo));
+});
+
+// Actualiza en vivo, mientras se escribe la cantidad (o se cambia el tipo
+// con el toggle), cuál va a quedar el stock después del movimiento. Esta
+// retroalimentación inmediata es la que ayuda a evitar errores: si
+// alguien se equivoca de cero (ej. pone "50" en vez de "5"), lo nota
+// ANTES de confirmar, no después.
+function actualizarPreviewMovimiento() {
   const preview = document.getElementById('mov-preview');
   const medicamentoId = document.getElementById('mov-medicamento-id').value;
   const tipo = document.getElementById('mov-tipo').value;
@@ -697,7 +766,9 @@ document.getElementById('mov-cantidad').addEventListener('input', () => {
     preview.className = 'preview-resultado bien';
     preview.textContent = `Va a quedar en ${nuevoStock} ${medicamento.unidad || ''}.`;
   }
-});
+}
+
+document.getElementById('mov-cantidad').addEventListener('input', actualizarPreviewMovimiento);
 
 document.getElementById('form-movimiento').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -995,6 +1066,24 @@ function convertirFechaGS1(aammdd) {
   return `${anio}-${pad(mes)}-${pad(dia)}`;
 }
 
+// Cuando el mismo código de barras tiene varios lotes en stock, elegimos
+// automáticamente de cuál descontar aplicando la regla estándar de
+// farmacia "FEFO" (First Expired, First Out: primero vence, primero
+// sale): se prioriza el lote activo, con stock disponible, cuyo
+// vencimiento sea el más próximo. Si ninguno tiene fecha de vencimiento
+// cargada, se usa el primero con stock disponible.
+function elegirLoteParaRetiro(lotes) {
+  const disponibles = lotes.filter((m) => m.estado !== 'dado_de_baja' && Number(m.stock_actual) > 0);
+  const candidatos = disponibles.length > 0 ? disponibles : lotes;
+
+  return [...candidatos].sort((a, b) => {
+    if (!a.fecha_vencimiento && !b.fecha_vencimiento) return 0;
+    if (!a.fecha_vencimiento) return 1;
+    if (!b.fecha_vencimiento) return -1;
+    return a.fecha_vencimiento.localeCompare(b.fecha_vencimiento);
+  })[0];
+}
+
 function buscarPorCodigoBarras(textoEscaneado) {
   const mensajeEl = document.getElementById('scanner-mensaje');
   const analisis = parsearEscaneo(textoEscaneado);
@@ -1008,14 +1097,11 @@ function buscarPorCodigoBarras(textoEscaneado) {
 
   if (coincidencias.length > 0) {
     const nombreProducto = coincidencias[0].nombre_generico;
-    mensajeEl.textContent = coincidencias.length === 1
-      ? `✔ Encontrado: ${nombreProducto} (1 lote en stock)`
-      : `✔ Encontrado: ${nombreProducto} (${coincidencias.length} lotes en stock)`;
-    mensajeEl.className = 'scanner-mensaje ok';
 
     // Nos aseguramos de estar parados en la vista de inventario, dejamos
     // el grupo de este producto desplegado, y filtramos/resaltamos TODAS
-    // las filas encontradas.
+    // las filas encontradas (para que quede visible de qué lote se va a
+    // descontar el retiro que se abre a continuación).
     if (coincidencias.length > 1) estado.gruposExpandidos.add(codigo);
     cambiarVista('vista-inventario');
     document.getElementById('buscador-inventario').value = nombreProducto;
@@ -1029,6 +1115,19 @@ function buscarPorCodigoBarras(textoEscaneado) {
         setTimeout(() => fila.classList.remove('fila-destacada'), 2500);
       }
     });
+
+    // El producto ya existe en el inventario: escanear no sirve para darlo
+    // de alta de nuevo, sino para registrar un movimiento de stock. El
+    // caso más común es un retiro (se usó/entregó una unidad), así que el
+    // modal arranca ahí, pero el toggle de Ingreso/Retiro dentro del modal
+    // permite cambiarlo con un clic si en realidad llegó mercadería nueva.
+    const loteElegido = elegirLoteParaRetiro(coincidencias);
+    mensajeEl.textContent = coincidencias.length === 1
+      ? `✔ Encontrado: ${nombreProducto} (1 lote en stock). Se abrió el movimiento de stock.`
+      : `✔ Encontrado: ${nombreProducto} (${coincidencias.length} lotes en stock). Se abrió el movimiento sobre el lote "${loteElegido.lote || 's/n'}" (el de vencimiento más próximo).`;
+    mensajeEl.className = 'scanner-mensaje ok';
+
+    abrirModalMovimiento(loteElegido, 'retiro');
   } else {
     mensajeEl.textContent = analisis.esGS1
       ? `✘ No hay stock con el código "${codigo}". Se abrió el formulario con los datos leídos del código 2D.`

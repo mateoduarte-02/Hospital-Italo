@@ -328,6 +328,11 @@
         <p><strong id="mov-nombre-medicamento"></strong></p>
         <p class="subtexto">Stock actual: <span id="mov-stock-actual-texto">0</span></p>
 
+        <div class="mov-tipo-toggle" role="group" aria-label="Tipo de movimiento">
+          <button type="button" class="mov-tipo-boton" data-tipo="ingreso">⬆️ Ingreso</button>
+          <button type="button" class="mov-tipo-boton" data-tipo="retiro">⬇️ Retiro</button>
+        </div>
+
         <label for="mov-cantidad">Cantidad *</label>
         <input type="number" id="mov-cantidad" min="1" step="1" required inputmode="numeric" autofocus />
 

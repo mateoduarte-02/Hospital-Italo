@@ -210,6 +210,37 @@ body {
   background: #f6d3d0;
 }
 
+/* Selector Ingreso/Retiro dentro del modal de movimiento: permite elegir
+   (o cambiar) el tipo de movimiento sin tener que cerrar el modal y volver
+   a abrirlo, por ejemplo cuando lo abrió el escáner (que no puede saber
+   de antemano si el usuario quiere sumar o restar stock). */
+.mov-tipo-toggle {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0 16px;
+}
+.mov-tipo-boton {
+  flex: 1;
+  padding: 10px;
+  border: 2px solid var(--color-borde);
+  border-radius: 8px;
+  background: var(--color-superficie);
+  color: var(--color-texto-secundario);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.mov-tipo-boton[data-tipo="ingreso"].activo {
+  background: var(--color-ok-fondo);
+  color: var(--color-ok);
+  border-color: var(--color-ok);
+}
+.mov-tipo-boton[data-tipo="retiro"].activo {
+  background: var(--color-critico-fondo);
+  color: var(--color-critico);
+  border-color: var(--color-critico);
+}
+
 /* Botones circulares: usados en la tabla de inventario para ingreso,
    retiro, historial y editar. Compactos, con buen contraste de color
    para reconocerlos de un vistazo sin tener que leer el texto. */
