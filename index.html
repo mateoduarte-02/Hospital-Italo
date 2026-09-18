@@ -5,29 +5,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Hospital Dr. Luis Mario Marini - Gestión de Stock</title>
 
-  <!-- Hoja de estilos propia -->
   <link rel="stylesheet" href="style.css" />
-
-  <!-- Ícono de la pestaña del navegador (favicon). Un solo archivo SVG
-       alcanza: se ve nítido en cualquier tamaño y funciona en todos los
-       navegadores modernos. -->
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
 
   <!--
-    Librería oficial de Supabase, cargada desde un CDN (jsDelivr).
-    Esto nos da un objeto global "supabase" que usamos en app.js para
-    hablar con la base de datos y con el sistema de autenticación,
-    sin necesidad de instalar nada con npm ni correr un servidor.
+    Librería oficial de Supabase, cargada desde un CDN (jsDelivr). Esto
+    nos da un objeto global "supabase" que usan los módulos de js/ para
+    hablar con la base de datos y con el sistema de autenticación, sin
+    necesidad de instalar nada con npm.
   -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
   <!-- =====================================================================
-       PANTALLA DE LOGIN
-       Se muestra siempre al abrir la página. Si ya hay una sesión activa
-       guardada por Supabase, app.js la oculta automáticamente y muestra
-       la pantalla principal.
+       PANTALLA DE LOGIN / REGISTRO
+       Es la única pantalla de este archivo. Si ya hay sesión activa y
+       aprobada, js/auth.js redirige directo a inventario.html; el resto
+       de las páginas de la app (inventario/historial/alertas/usuarios)
+       redirigen PARA ACÁ si no hay sesión válida (ver js/shell.js).
   ====================================================================== -->
   <section id="pantalla-login" class="pantalla-login">
     <div class="tarjeta-login">
@@ -56,8 +52,8 @@
 
       <!-- Formulario de alta de cuenta nueva: crea el login en Supabase
            Auth, pero la cuenta queda "pendiente" hasta que un admin la
-           apruebe desde la vista Usuarios (ver js/usuarios.js). No
-           permite hacer nada en el sistema todavía. -->
+           apruebe desde usuarios.html. No permite hacer nada en el
+           sistema todavía. -->
       <form id="form-registro" class="oculto" autocomplete="on">
         <label for="registro-nombre">Nombre</label>
         <input type="text" id="registro-nombre" placeholder="Ej: María López" required autocomplete="name" />
@@ -82,7 +78,7 @@
 
   <!-- =====================================================================
        PANTALLA: CUENTA PENDIENTE / RECHAZADA
-       Se muestra en vez de la app cuando el usuario ya inició sesión pero
+       Se muestra en vez del login cuando el usuario ya inició sesión pero
        todavía no fue aprobado por un administrador (o fue rechazado).
   ====================================================================== -->
   <section id="pantalla-pendiente" class="pantalla-login oculto">
@@ -100,387 +96,6 @@
     </div>
   </section>
 
-
-  <!-- =====================================================================
-       APLICACIÓN PRINCIPAL (oculta hasta que el usuario inicia sesión)
-       Estructura: barra lateral fija (navegación) + panel de contenido.
-  ====================================================================== -->
-  <div id="pantalla-app" class="pantalla-app oculto">
-
-    <!-- ---------- BARRA LATERAL ---------- -->
-    <aside class="sidebar">
-      <div class="sidebar-marca">
-        <span class="marca-icono" aria-hidden="true">💊</span>
-        <span class="marca-texto">FarmaHospital</span>
-      </div>
-
-      <nav class="sidebar-nav">
-        <button class="nav-item activa" data-vista="vista-inventario">
-          <span class="nav-icono">📦</span> Inventario
-        </button>
-        <button class="nav-item" data-vista="vista-historial">
-          <span class="nav-icono">🕓</span> Historial
-        </button>
-        <button class="nav-item" data-vista="vista-alertas">
-          <span class="nav-icono">⚠️</span> Alertas Stock
-          <span id="badge-alertas" class="badge oculto">0</span>
-        </button>
-        <button class="nav-item oculto" data-vista="vista-usuarios" id="nav-usuarios">
-          <span class="nav-icono">👥</span> Usuarios
-          <span id="badge-usuarios-pendientes" class="badge oculto">0</span>
-        </button>
-      </nav>
-
-      <div class="sidebar-usuario">
-        <span class="usuario-avatar" aria-hidden="true">👤</span>
-        <div class="usuario-texto">
-          <strong id="nombre-usuario-actual">Usuario</strong>
-          <span>Sesión activa</span>
-        </div>
-        <button id="btn-logout" class="btn-salir" title="Cerrar sesión">⏻</button>
-      </div>
-    </aside>
-
-    <!-- ---------- PANEL PRINCIPAL ---------- -->
-    <div class="panel-principal">
-
-      <!-- Encabezado: título de la vista actual + acceso al escáner.
-           El campo de escaneo queda SIEMPRE visible acá arriba, sin
-           importar en qué vista estemos, porque un lector de código de
-           barras USB puede "disparar" en cualquier momento del turno. -->
-      <header class="header-vista">
-        <h1 id="titulo-vista">Control de Inventario y Medicamentos</h1>
-
-        <div class="scanner-pill">
-          <span aria-hidden="true">🔎</span>
-          <input type="text" id="input-scanner" placeholder="Escanear código de barras / QR..." autocomplete="off" />
-        </div>
-      </header>
-      <p id="scanner-mensaje" class="scanner-mensaje"></p>
-
-      <main class="contenido">
-
-        <!-- =================== VISTA: INVENTARIO =================== -->
-        <section id="vista-inventario" class="vista activa">
-
-          <!-- Tarjetas resumen: dan un pantallazo del estado general del
-               stock sin tener que entrar a buscarlo. -->
-          <div class="tarjetas-resumen">
-            <div class="tarjeta-resumen">
-              <span class="resumen-icono resumen-icono-info">📦</span>
-              <div>
-                <span class="resumen-etiqueta">Medicamentos registrados</span>
-                <span class="resumen-valor" id="resumen-total">0</span>
-              </div>
-            </div>
-            <div class="tarjeta-resumen">
-              <span class="resumen-icono resumen-icono-alerta">⚠️</span>
-              <div>
-                <span class="resumen-etiqueta">Stock bajo</span>
-                <span class="resumen-valor" id="resumen-stock-bajo">0</span>
-              </div>
-            </div>
-            <div class="tarjeta-resumen">
-              <span class="resumen-icono resumen-icono-critico">⏳</span>
-              <div>
-                <span class="resumen-etiqueta">Próximos a vencer / vencidos</span>
-                <span class="resumen-valor" id="resumen-vencimiento">0</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="barra-acciones">
-            <input type="search" id="buscador-inventario" placeholder="Buscar por nombre, lote o código de barras..." />
-            <button id="btn-abrir-alta" class="btn btn-primario">+ Agregar medicamento</button>
-          </div>
-
-          <div class="tabla-wrapper">
-            <table class="tabla" id="tabla-medicamentos">
-              <thead>
-                <tr>
-                  <th>Medicamento</th>
-                  <th>Lote</th>
-                  <th>Categoría</th>
-                  <th>Stock actual</th>
-                  <th>Vencimiento</th>
-                  <th>Estado</th>
-                  <th>Código</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody id="cuerpo-tabla-medicamentos">
-                <!-- Las filas se generan dinámicamente desde app.js -->
-              </tbody>
-            </table>
-            <p id="inventario-vacio" class="texto-vacio oculto">No hay medicamentos cargados todavía.</p>
-          </div>
-        </section>
-
-        <!-- =================== VISTA: HISTORIAL (auditoría) =================== -->
-        <section id="vista-historial" class="vista">
-          <div class="barra-acciones">
-            <input type="search" id="buscador-movimientos" placeholder="Buscar por medicamento o usuario..." />
-          </div>
-          <div class="tabla-wrapper">
-            <table class="tabla">
-              <thead>
-                <tr>
-                  <th>Fecha y hora</th>
-                  <th>Usuario</th>
-                  <th>Medicamento</th>
-                  <th>Tipo</th>
-                  <th>Cantidad</th>
-                  <th>Stock resultante</th>
-                  <th>Observaciones</th>
-                </tr>
-              </thead>
-              <tbody id="cuerpo-tabla-movimientos"></tbody>
-            </table>
-            <p id="movimientos-vacio" class="texto-vacio oculto">Todavía no hay movimientos registrados.</p>
-          </div>
-        </section>
-
-        <!-- =================== VISTA: ALERTAS STOCK =================== -->
-        <section id="vista-alertas" class="vista">
-          <div class="grilla-alertas">
-            <div class="panel-alerta">
-              <h2>⏳ Próximos a vencer / vencidos</h2>
-              <p class="subtexto">Medicamentos que vencen dentro de los próximos 15 días, o que ya vencieron.</p>
-              <div id="lista-alertas-vencimiento" class="lista-alertas"></div>
-            </div>
-
-            <div class="panel-alerta">
-              <h2>📉 Stock por debajo del mínimo</h2>
-              <p class="subtexto">Medicamentos cuyo stock actual está en o por debajo del mínimo definido.</p>
-              <div id="lista-alertas-stock" class="lista-alertas"></div>
-            </div>
-          </div>
-        </section>
-
-        <!-- =================== VISTA: USUARIOS (solo admin) =================== -->
-        <section id="vista-usuarios" class="vista">
-          <p class="subtexto">
-            Cuentas nuevas que se registran quedan "pendientes" hasta que las
-            apruebes acá. Un usuario pendiente o rechazado no puede ver ni
-            tocar nada del inventario, aunque haya iniciado sesión.
-          </p>
-          <div class="tabla-wrapper">
-            <table class="tabla">
-              <thead>
-                <tr>
-                  <th>Nombre</th>
-                  <th>Email</th>
-                  <th>Rol</th>
-                  <th>Estado</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody id="cuerpo-tabla-usuarios"></tbody>
-            </table>
-          </div>
-        </section>
-
-      </main>
-    </div>
-  </div>
-
-
-  <!-- =====================================================================
-       MODAL: ALTA / EDICIÓN DE MEDICAMENTO
-  ====================================================================== -->
-  <div id="modal-medicamento" class="modal-fondo oculto">
-    <div class="modal-caja">
-      <div class="modal-header">
-        <h2 id="titulo-modal-medicamento">Agregar medicamento</h2>
-        <button class="btn-cerrar" data-cerrar-modal="modal-medicamento">✕</button>
-      </div>
-
-      <form id="form-medicamento" class="form-grid">
-        <input type="hidden" id="med-id" />
-
-        <div class="campo">
-          <label for="med-codigo-barras">Código de barras / QR</label>
-          <input type="text" id="med-codigo-barras" placeholder="Escanear o escribir código" />
-        </div>
-
-        <div class="campo">
-          <label for="med-nombre-generico">Nombre genérico *</label>
-          <input type="text" id="med-nombre-generico" required placeholder="Ej: Paracetamol" />
-        </div>
-
-        <div class="campo">
-          <label for="med-nombre-comercial">Nombre comercial</label>
-          <input type="text" id="med-nombre-comercial" placeholder="Ej: Tafirol" />
-        </div>
-
-        <div class="campo">
-          <label for="med-lote">Lote</label>
-          <input type="text" id="med-lote" />
-        </div>
-
-        <div class="campo">
-          <label for="med-categoria">Categoría</label>
-          <input type="text" id="med-categoria" placeholder="Ej: Analgésico" />
-        </div>
-
-        <div class="campo">
-          <label for="med-unidad">Unidad</label>
-          <input type="text" id="med-unidad" placeholder="Ej: comprimidos, ampollas, ml" />
-        </div>
-
-        <div class="campo">
-          <label for="med-stock-actual">Stock actual *</label>
-          <input type="number" id="med-stock-actual" min="0" step="1" required value="0" />
-        </div>
-
-        <div class="campo">
-          <label for="med-stock-minimo">Stock mínimo *</label>
-          <input type="number" id="med-stock-minimo" min="0" step="1" required value="0" />
-        </div>
-
-        <div class="campo">
-          <label for="med-fecha-ingreso">Fecha de ingreso</label>
-          <input type="date" id="med-fecha-ingreso" />
-        </div>
-
-        <div class="campo">
-          <label for="med-fecha-vencimiento">Fecha de vencimiento</label>
-          <input type="date" id="med-fecha-vencimiento" />
-        </div>
-
-        <div class="campo">
-          <label for="med-condicion">Condición de almacenamiento</label>
-          <select id="med-condicion">
-            <option value="ambiente">Ambiente</option>
-            <option value="refrigerado">Refrigerado</option>
-            <option value="cadena_frio">Cadena de frío</option>
-          </select>
-        </div>
-
-        <div class="campo">
-          <label for="med-ubicacion">Ubicación física</label>
-          <input type="text" id="med-ubicacion" placeholder="Ej: Farmacia central - Estante 3" />
-        </div>
-
-        <div class="campo">
-          <label for="med-proveedor">Proveedor</label>
-          <input type="text" id="med-proveedor" placeholder="Ej: Droguería del Sur" />
-        </div>
-
-        <div class="campo">
-          <label for="med-estado">Estado</label>
-          <select id="med-estado">
-            <option value="activo">Activo</option>
-            <option value="vencido">Vencido</option>
-            <option value="dado_de_baja">Dado de baja</option>
-          </select>
-        </div>
-
-        <p id="medicamento-error" class="mensaje-error oculto"></p>
-
-        <div class="modal-acciones">
-          <button type="button" class="btn btn-secundario" data-cerrar-modal="modal-medicamento">Cancelar</button>
-          <button type="submit" class="btn btn-primario">Guardar</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-
-  <!-- =====================================================================
-       MODAL: INGRESO / RETIRO / AJUSTE DE STOCK
-  ====================================================================== -->
-  <div id="modal-movimiento" class="modal-fondo oculto">
-    <div class="modal-caja modal-chica">
-      <div class="modal-header">
-        <h2 id="titulo-modal-movimiento">Movimiento de stock</h2>
-        <button class="btn-cerrar" data-cerrar-modal="modal-movimiento">✕</button>
-      </div>
-
-      <form id="form-movimiento">
-        <input type="hidden" id="mov-medicamento-id" />
-        <input type="hidden" id="mov-tipo" />
-
-        <p><strong id="mov-nombre-medicamento"></strong></p>
-        <p class="subtexto">Stock actual: <span id="mov-stock-actual-texto">0</span></p>
-
-        <div class="mov-tipo-toggle" role="group" aria-label="Tipo de movimiento">
-          <button type="button" class="mov-tipo-boton" data-tipo="ingreso">⬆️ Ingreso</button>
-          <button type="button" class="mov-tipo-boton" data-tipo="retiro">⬇️ Retiro</button>
-        </div>
-
-        <label for="mov-cantidad">Cantidad *</label>
-        <input type="number" id="mov-cantidad" min="1" step="1" required inputmode="numeric" autofocus />
-
-        <div id="mov-preview" class="preview-resultado oculto"></div>
-
-        <div id="mov-pr-seccion" class="oculto">
-          <input type="hidden" id="mov-pr" value="no" />
-          <label>¿Con receta (PR)?</label>
-          <div class="mov-tipo-toggle" role="group" aria-label="Con o sin receta">
-            <button type="button" class="mov-pr-boton" data-pr="no">Sin PR</button>
-            <button type="button" class="mov-pr-boton" data-pr="si">Con PR</button>
-          </div>
-
-          <div id="mov-pr-campos" class="oculto">
-            <label for="mov-pr-paciente">Paciente *</label>
-            <input type="text" id="mov-pr-paciente" placeholder="Nombre y apellido del paciente" />
-
-            <label for="mov-pr-medico">Médico *</label>
-            <input type="text" id="mov-pr-medico" placeholder="Nombre y apellido del médico" />
-          </div>
-        </div>
-
-        <label for="mov-observaciones">Observaciones (opcional)</label>
-        <textarea id="mov-observaciones" rows="3" placeholder="Ej: entrega a guardia, devolución de sala, etc."></textarea>
-
-        <p id="movimiento-error" class="mensaje-error oculto"></p>
-
-        <div class="modal-acciones">
-          <button type="button" class="btn btn-secundario" data-cerrar-modal="modal-movimiento">Cancelar</button>
-          <button type="submit" class="btn btn-primario" id="btn-confirmar-movimiento">Confirmar</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-
-  <!-- =====================================================================
-       MODAL: HISTORIAL DE UN MEDICAMENTO PUNTUAL
-  ====================================================================== -->
-  <div id="modal-historial" class="modal-fondo oculto">
-    <div class="modal-caja">
-      <div class="modal-header">
-        <h2 id="titulo-modal-historial">Historial del medicamento</h2>
-        <button class="btn-cerrar" data-cerrar-modal="modal-historial">✕</button>
-      </div>
-      <div class="tabla-wrapper">
-        <table class="tabla">
-          <thead>
-            <tr>
-              <th>Fecha y hora</th>
-              <th>Usuario</th>
-              <th>Tipo</th>
-              <th>Cantidad</th>
-              <th>Stock resultante</th>
-              <th>Observaciones</th>
-            </tr>
-          </thead>
-          <tbody id="cuerpo-tabla-historial"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-
-  <!-- Toast simple para mensajes de éxito / error -->
-  <div id="toast" class="toast oculto"></div>
-
-  <!--
-    Lógica de la aplicación, dividida en módulos por tema dentro de js/
-    (ver js/main.js). config.js (la URL y la clave de Supabase que hay
-    que editar) se importa desde ahí, no hace falta otro <script> acá.
-  -->
-  <script type="module" src="js/main.js"></script>
+  <script type="module" src="js/main-login.js"></script>
 </body>
 </html>

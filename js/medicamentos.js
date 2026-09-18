@@ -4,10 +4,15 @@
 import { supabaseClient } from './supabase-client.js';
 import { estado } from './estado.js';
 import { abrirModal, cerrarModal, mostrarToast, fechaDeHoyISO } from './utils.js';
-import { cargarTodo } from './datos.js';
+import { cargarInventario } from './datos.js';
 import { registrarMovimiento } from './movimientos.js';
+import { actualizarBadgesSidebar } from './shell.js';
 
-document.getElementById('btn-abrir-alta').addEventListener('click', () => abrirModalMedicamento(null));
+// Este módulo se importa (indirectamente, vía datos.js -> inventario.js)
+// desde todas las páginas de la app, aunque solo se usa de verdad en
+// inventario.html — por eso los guards: en cualquier otra página, este
+// botón y este formulario no existen en el DOM.
+document.getElementById('btn-abrir-alta')?.addEventListener('click', () => abrirModalMedicamento(null));
 
 // Abre el modal de medicamento. Si se pasa un medicamento existente, lo
 // abre en modo "edición" con los campos ya completados; si se pasa null,
@@ -132,7 +137,7 @@ function buscarConflictoDeProducto(datos, idActual) {
   return null;
 }
 
-document.getElementById('form-medicamento').addEventListener('submit', async (e) => {
+document.getElementById('form-medicamento')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   const errorEl = document.getElementById('medicamento-error');
   errorEl.classList.add('oculto');
@@ -156,6 +161,14 @@ document.getElementById('form-medicamento').addEventListener('submit', async (e)
     proveedor: valorOnull('med-proveedor'),
     estado: document.getElementById('med-estado').value,
   };
+
+  // Un lote en 0 no sirve de nada mantenerlo "activo": se marca "dado de
+  // baja" automáticamente (no se borra — el historial de auditoría queda
+  // intacto), igual que hace un retiro que deja el stock en 0 (ver
+  // movimientos.js). Así queda oculto de la tabla por defecto.
+  if (datos.stock_actual === 0) {
+    datos.estado = 'dado_de_baja';
+  }
 
   const conflicto = buscarConflictoDeProducto(datos, id || null);
   if (conflicto) {
@@ -198,7 +211,8 @@ document.getElementById('form-medicamento').addEventListener('submit', async (e)
     cerrarModal('modal-medicamento');
     mostrarToast(esNuevo ? 'Medicamento agregado' : 'Medicamento actualizado');
     await actualizarCatalogo(datos);
-    await cargarTodo();
+    await cargarInventario();
+    await actualizarBadgesSidebar();
   } catch (err) {
     console.error(err);
     errorEl.textContent = 'Ocurrió un error al guardar. Revisá los datos e intentá de nuevo.';

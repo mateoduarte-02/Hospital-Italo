@@ -1,14 +1,13 @@
 // =========================================================================
-// AUTENTICACIÓN (login, registro, logout, sesión, aprobación de cuentas)
+// AUTENTICACIÓN — solo para index.html (login, registro, pantalla de
+// espera). El resto de las páginas de la app verifican la sesión con
+// js/shell.js y redirigen para acá si hace falta.
 // =========================================================================
 import { supabaseClient } from './supabase-client.js';
-import { estado } from './estado.js';
-import { cargarTodo } from './datos.js';
-import { cambiarVista } from './utils.js';
 
 // Al cargar la página, nos fijamos si ya existe una sesión guardada
-// (Supabase la guarda sola en el navegador). Si existe, entramos directo
-// a la app sin pedir login de nuevo.
+// (Supabase la guarda sola en el navegador). Si existe y está aprobada,
+// vamos directo al inventario, sin pedir login de nuevo.
 export async function iniciarApp() {
   const { data: { session } } = await supabaseClient.auth.getSession();
 
@@ -18,8 +17,6 @@ export async function iniciarApp() {
     mostrarPantallaLogin();
   }
 
-  // Nos suscribimos a los cambios de sesión (login / logout) para que la
-  // pantalla reaccione automáticamente.
   supabaseClient.auth.onAuthStateChange((evento, session) => {
     if (evento === 'SIGNED_OUT') {
       mostrarPantallaLogin();
@@ -104,38 +101,24 @@ document.getElementById('form-registro').addEventListener('submit', async (e) =>
   }
 });
 
-// Botón de cerrar sesión (desde la app) y desde la pantalla de "pendiente"
-document.getElementById('btn-logout').addEventListener('click', async () => {
-  await supabaseClient.auth.signOut();
-});
+// Botón de cerrar sesión desde la pantalla de "pendiente"
 document.getElementById('btn-logout-pendiente').addEventListener('click', async () => {
   await supabaseClient.auth.signOut();
 });
 
 // Se ejecuta cada vez que confirmamos que hay un usuario logueado (login
 // normal, registro con sesión inmediata, o sesión ya guardada al abrir la
-// página). Busca (o crea) el perfil y, según si está aprobado o no,
-// muestra la app o la pantalla de espera.
+// página). Busca (o crea) el perfil y, según si está aprobado o no, va al
+// inventario o muestra la pantalla de espera.
 async function manejarSesionIniciada(usuario) {
-  estado.usuario = usuario;
-  estado.perfil = await obtenerOCrearPerfil(usuario);
+  const perfil = await obtenerOCrearPerfil(usuario);
 
-  if (estado.perfil.estado_cuenta !== 'aprobado') {
-    mostrarPantallaPendiente(estado.perfil.estado_cuenta);
+  if (perfil.estado_cuenta !== 'aprobado') {
+    mostrarPantallaPendiente(perfil.estado_cuenta);
     return;
   }
 
-  document.getElementById('nombre-usuario-actual').textContent = estado.perfil.nombre;
-  document.getElementById('nav-usuarios').classList.toggle('oculto', estado.perfil.rol !== 'admin');
-
-  // La app es una sola página que no se recarga entre un logout y el
-  // siguiente login: si no volviéramos siempre a "Inventario" acá, una
-  // persona podría quedar viendo la última vista que dejó abierta OTRA
-  // persona en el mismo navegador (por ejemplo, la de "Usuarios").
-  cambiarVista('vista-inventario');
-
-  mostrarPantallaApp();
-  await cargarTodo();
+  window.location.href = 'inventario.html';
 }
 
 // Busca el perfil del usuario en la tabla "profiles". Si por algún motivo
@@ -170,24 +153,15 @@ async function obtenerOCrearPerfil(usuario) {
 function mostrarPantallaLogin() {
   document.getElementById('pantalla-login').classList.remove('oculto');
   document.getElementById('pantalla-pendiente').classList.add('oculto');
-  document.getElementById('pantalla-app').classList.add('oculto');
   document.getElementById('form-login').reset();
   document.getElementById('form-registro').reset();
-  // Por si quedó mostrando el formulario de registro, volvemos al de login.
   document.getElementById('btn-ir-a-login').click();
-}
-
-function mostrarPantallaApp() {
-  document.getElementById('pantalla-login').classList.add('oculto');
-  document.getElementById('pantalla-pendiente').classList.add('oculto');
-  document.getElementById('pantalla-app').classList.remove('oculto');
 }
 
 // Cuenta logueada pero todavía no habilitada (o rechazada): no muestra la
 // app, solo un mensaje y el botón para cerrar sesión.
 function mostrarPantallaPendiente(estadoCuenta) {
   document.getElementById('pantalla-login').classList.add('oculto');
-  document.getElementById('pantalla-app').classList.add('oculto');
   document.getElementById('pantalla-pendiente').classList.remove('oculto');
 
   const icono = document.getElementById('pendiente-icono');

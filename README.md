@@ -13,14 +13,23 @@ clic en `index.html`, ver la Sección 6).
 
 ## 1. Qué archivos tenés
 
-| Archivo        | Para qué sirve                                                       |
-|-----------------|-----------------------------------------------------------------------|
-| `schema.sql`    | Script para crear las tablas y la seguridad en Supabase (se corre 1 sola vez) |
-| `index.html`    | Estructura de la página (login + inventario + alertas + auditoría)   |
-| `style.css`     | Estilos visuales                                                      |
-| `js/`           | Toda la lógica de la app, dividida en un archivo por tema (login, inventario, alertas, escáner, etc. — ver `js/main.js`) |
-| `config.js`     | **Acá pegás tu URL y tu clave de Supabase** (es lo único que editás)  |
-| `README.md`     | Este instructivo                                                      |
+| Archivo             | Para qué sirve                                                       |
+|----------------------|-----------------------------------------------------------------------|
+| `schema.sql`         | Script para crear las tablas y la seguridad en Supabase (se corre 1 sola vez) |
+| `index.html`         | Pantalla de login / registro / cuenta pendiente                     |
+| `inventario.html`    | Vista de inventario (tabla de medicamentos + escáner)                |
+| `historial.html`     | Vista de auditoría (todos los movimientos)                           |
+| `alertas.html`       | Vista de alertas de stock bajo / vencimientos                        |
+| `usuarios.html`      | Vista de administración de usuarios (solo admins)                    |
+| `style.css`          | Estilos visuales                                                      |
+| `js/`                | Toda la lógica, un archivo por tema. `js/shell.js` arma el menú lateral y el encabezado (compartidos por las 4 páginas de la app) y valida la sesión; `js/main-*.js` es el punto de entrada de cada página |
+| `config.js`          | **Acá pegás tu URL y tu clave de Supabase** (es lo único que editás)  |
+| `README.md`          | Este instructivo                                                      |
+
+Nota: cada vista es su propia página HTML (no una sola app de una
+página) — así cada una se puede tocar/ajustar por separado sin afectar a
+las demás. Lo único compartido entre ellas es el menú lateral y el
+encabezado, que arma `js/shell.js` en tiempo de carga.
 
 ---
 

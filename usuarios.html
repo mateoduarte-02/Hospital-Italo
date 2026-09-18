@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Usuarios - Hospital Dr. Luis Mario Marini</title>
+
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body data-pagina="usuarios" data-titulo="Gestión de Usuarios">
+
+  <div class="pantalla-app">
+    <aside class="sidebar" id="shell-sidebar"></aside>
+
+    <div class="panel-principal">
+      <header class="header-vista" id="shell-header"></header>
+      <p id="scanner-mensaje" class="scanner-mensaje"></p>
+
+      <main class="contenido">
+        <section id="vista-usuarios" class="vista activa">
+          <p class="subtexto">
+            Cuentas nuevas que se registran quedan "pendientes" hasta que las
+            apruebes acá. Un usuario pendiente o rechazado no puede ver ni
+            tocar nada del inventario, aunque haya iniciado sesión.
+          </p>
+          <div class="tabla-wrapper">
+            <table class="tabla">
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Email</th>
+                  <th>Rol</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="cuerpo-tabla-usuarios"></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div id="toast" class="toast oculto"></div>
+
+  <script type="module" src="js/main-usuarios.js"></script>
+</body>
+</html>

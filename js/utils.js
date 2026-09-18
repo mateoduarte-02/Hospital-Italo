@@ -1,25 +1,9 @@
 // =========================================================================
-// UTILIDADES: navegación (sidebar), modales, toasts, fechas, texto seguro
+// UTILIDADES: modales, toasts, fechas, texto seguro
 // =========================================================================
-// Funciones chicas y sin estado propio, usadas desde varios módulos.
-
-// --- Navegación por vistas (barra lateral) ---
-const TITULOS_VISTA = {
-  'vista-inventario': 'Control de Inventario y Medicamentos',
-  'vista-historial': 'Historial de Movimientos (Auditoría)',
-  'vista-alertas': 'Alertas de Stock y Vencimiento',
-  'vista-usuarios': 'Gestión de Usuarios',
-};
-
-export function cambiarVista(idVista) {
-  document.querySelectorAll('.nav-item').forEach((b) => b.classList.toggle('activa', b.dataset.vista === idVista));
-  document.querySelectorAll('.vista').forEach((v) => v.classList.toggle('activa', v.id === idVista));
-  document.getElementById('titulo-vista').textContent = TITULOS_VISTA[idVista] || '';
-}
-
-document.querySelectorAll('.nav-item').forEach((btn) => {
-  btn.addEventListener('click', () => cambiarVista(btn.dataset.vista));
-});
+// Funciones chicas y sin estado propio, usadas desde varios módulos. La
+// navegación entre vistas ahora es navegación real de páginas (cada vista
+// es su propio .html, ver js/shell.js), así que acá ya no hay nada de eso.
 
 // --- Modales ---
 export function abrirModal(id) {

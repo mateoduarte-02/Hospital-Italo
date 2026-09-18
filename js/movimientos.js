@@ -4,7 +4,8 @@
 import { supabaseClient } from './supabase-client.js';
 import { estado } from './estado.js';
 import { abrirModal, cerrarModal, mostrarToast } from './utils.js';
-import { cargarTodo } from './datos.js';
+import { cargarInventario } from './datos.js';
+import { actualizarBadgesSidebar } from './shell.js';
 
 export function abrirModalMovimiento(medicamento, tipo) {
   document.getElementById('form-movimiento').reset();
@@ -113,9 +114,13 @@ function actualizarPreviewMovimiento() {
   }
 }
 
-document.getElementById('mov-cantidad').addEventListener('input', actualizarPreviewMovimiento);
+// Este módulo se importa (indirectamente, vía datos.js -> inventario.js)
+// desde todas las páginas de la app, aunque solo se usa de verdad en
+// inventario.html — por eso los guards: en cualquier otra página, estos
+// elementos no existen en el DOM.
+document.getElementById('mov-cantidad')?.addEventListener('input', actualizarPreviewMovimiento);
 
-document.getElementById('form-movimiento').addEventListener('submit', async (e) => {
+document.getElementById('form-movimiento')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   const errorEl = document.getElementById('movimiento-error');
   errorEl.classList.add('oculto');
@@ -167,10 +172,18 @@ document.getElementById('form-movimiento').addEventListener('submit', async (e) 
     ? Number(medicamento.stock_actual) + cantidad
     : Number(medicamento.stock_actual) - cantidad;
 
+  // Un lote en 0 no sirve de nada mantenerlo como "activo" en la tabla:
+  // se marca "dado de baja" automáticamente (no se borra — el historial
+  // de auditoría queda intacto) y así queda oculto de la vista por
+  // defecto (ver inventario.js). Si vuelve a entrar stock de ese lote más
+  // adelante (raro, pero posible), un ingreso lo reactiva solo.
+  const nuevoEstado = nuevoStock === 0 ? 'dado_de_baja'
+    : (medicamento.estado === 'dado_de_baja' ? 'activo' : medicamento.estado);
+
   try {
     const { error: errorUpdate } = await supabaseClient
       .from('medicamentos')
-      .update({ stock_actual: nuevoStock })
+      .update({ stock_actual: nuevoStock, estado: nuevoEstado })
       .eq('id', medicamentoId);
     if (errorUpdate) throw errorUpdate;
 
@@ -178,7 +191,8 @@ document.getElementById('form-movimiento').addEventListener('submit', async (e) 
 
     cerrarModal('modal-movimiento');
     mostrarToast(tipo === 'ingreso' ? 'Ingreso registrado' : 'Retiro registrado');
-    await cargarTodo();
+    await cargarInventario();
+    await actualizarBadgesSidebar();
   } catch (err) {
     console.error(err);
     errorEl.textContent = 'Ocurrió un error al registrar el movimiento.';

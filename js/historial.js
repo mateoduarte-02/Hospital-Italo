@@ -14,7 +14,7 @@ export function abrirModalHistorial(medicamento) {
   const movimientos = estado.movimientos.filter((mv) => mv.medicamento_id === medicamento.id);
 
   if (movimientos.length === 0) {
-    cuerpo.innerHTML = '<tr><td colspan="6" class="texto-vacio">Este medicamento todavía no tiene movimientos.</td></tr>';
+    cuerpo.innerHTML = '<tr><td colspan="5" class="texto-vacio">Este medicamento todavía no tiene movimientos.</td></tr>';
   } else {
     movimientos.forEach((mv) => {
       const tr = document.createElement('tr');
@@ -23,7 +23,6 @@ export function abrirModalHistorial(medicamento) {
         <td>${escapeHtml(estado.perfiles[mv.usuario_id] || 'Usuario desconocido')}</td>
         <td>${celdaTipoMovimiento(mv)}</td>
         <td>${mv.cantidad ?? '-'}</td>
-        <td>${mv.stock_resultante ?? '-'}</td>
         <td>${celdaObservaciones(mv)}</td>
       `;
       cuerpo.appendChild(tr);
@@ -33,15 +32,18 @@ export function abrirModalHistorial(medicamento) {
   abrirModal('modal-historial');
 }
 
+// Cada tipo tiene su propio ícono grande y color, para que se distinga de
+// un vistazo sin tener que leer la palabra (ver .chip-tipo-* en style.css).
 export function etiquetaTipoMovimiento(tipo) {
-  const textos = {
-    alta: '🆕 Alta',
-    ingreso: '⬆️ Ingreso',
-    retiro: '⬇️ Retiro',
-    ajuste: '✏️ Ajuste',
-    baja: '🚫 Baja',
-  };
-  return textos[tipo] || tipo;
+  const info = {
+    alta: { icono: '🆕', texto: 'Alta' },
+    ingreso: { icono: '⬆️', texto: 'Ingreso' },
+    retiro: { icono: '⬇️', texto: 'Retiro' },
+    ajuste: { icono: '✏️', texto: 'Ajuste' },
+    baja: { icono: '🚫', texto: 'Baja' },
+  }[tipo] || { icono: '•', texto: tipo };
+
+  return `<span class="chip-tipo chip-tipo-${tipo}"><span class="chip-tipo-icono">${info.icono}</span>${info.texto}</span>`;
 }
 
 // Todo retiro registrado desde que existe la receta (PR) guarda al
@@ -87,17 +89,10 @@ function celdaObservaciones(mv) {
 
 // --- Movimientos (tabla de auditoría general, vista "Historial") ---
 export function renderizarTablaMovimientos() {
-  const filtro = document.getElementById('buscador-movimientos').value.trim().toLowerCase();
   const cuerpo = document.getElementById('cuerpo-tabla-movimientos');
   cuerpo.innerHTML = '';
 
-  const lista = estado.movimientos.filter((mv) => {
-    if (!filtro) return true;
-    const nombreMed = mv.medicamentos ? mv.medicamentos.nombre_generico : '';
-    const nombreUsuario = estado.perfiles[mv.usuario_id] || '';
-    return `${nombreMed} ${nombreUsuario}`.toLowerCase().includes(filtro);
-  });
-
+  const lista = estado.movimientos;
   document.getElementById('movimientos-vacio').classList.toggle('oculto', lista.length > 0);
 
   lista.forEach((mv) => {
@@ -108,10 +103,8 @@ export function renderizarTablaMovimientos() {
       <td>${escapeHtml(mv.medicamentos ? mv.medicamentos.nombre_generico : '(medicamento eliminado)')}</td>
       <td>${celdaTipoMovimiento(mv)}</td>
       <td>${mv.cantidad ?? '-'}</td>
-      <td>${mv.stock_resultante ?? '-'}</td>
       <td>${celdaObservaciones(mv)}</td>
     `;
     cuerpo.appendChild(tr);
   });
 }
-document.getElementById('buscador-movimientos').addEventListener('input', renderizarTablaMovimientos);

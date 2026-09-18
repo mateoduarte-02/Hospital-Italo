@@ -364,6 +364,7 @@ body {
   align-items: center;
   gap: 12px;
   text-align: left;
+  text-decoration: none;
   background: transparent;
   border: none;
   color: var(--sidebar-texto);
@@ -567,6 +568,19 @@ body {
   font-family: inherit;
 }
 
+.check-dados-baja {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--color-texto-secundario);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.check-dados-baja input {
+  cursor: pointer;
+}
+
 /* ---------------------------------------------------------------------
    TARJETAS RESUMEN (estadísticas rápidas del inventario)
 --------------------------------------------------------------------- */
@@ -589,6 +603,21 @@ body {
   display: flex;
   align-items: center;
   gap: 14px;
+}
+
+/* Las tarjetas de "Stock bajo" y "Próximos a vencer" son también un link
+   a la vista de Alertas (ver inventario.html): mismo aspecto que las
+   demás, pero con un detalle sutil al pasar el mouse para que se note
+   que se puede tocar. */
+.tarjeta-resumen-link {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.15s ease;
+}
+.tarjeta-resumen-link:hover {
+  box-shadow: 0 4px 14px rgba(15, 40, 38, 0.12);
+  transform: translateY(-1px);
 }
 
 .resumen-icono {
@@ -665,6 +694,44 @@ body {
 .tabla tbody tr.fila-destacada {
   background: #fff7d6;
 }
+
+/* Tabla de auditoría (Historial): más grande y espaciada que las tablas
+   compactas del inventario, porque acá se lee, no se opera fila por fila
+   con botones — prioriza legibilidad por sobre densidad. */
+.tabla-historial {
+  font-size: 15px;
+}
+.tabla-historial th {
+  padding: 16px 18px;
+  font-size: 12.5px;
+}
+.tabla-historial td {
+  padding: 16px 18px;
+}
+
+/* Chip de "Tipo" en la auditoría: ícono grande a la izquierda + texto,
+   para que se distinga el tipo de movimiento de un vistazo sin tener que
+   leer la palabra completa. */
+.chip-tipo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+.chip-tipo-icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  font-size: 16px;
+}
+.chip-tipo-alta .chip-tipo-icono { background: var(--color-primario-claro); }
+.chip-tipo-ingreso .chip-tipo-icono { background: var(--color-ok-fondo); }
+.chip-tipo-retiro .chip-tipo-icono { background: var(--color-critico-fondo); }
+.chip-tipo-ajuste .chip-tipo-icono { background: var(--color-alerta-fondo); }
+.chip-tipo-baja .chip-tipo-icono { background: var(--color-neutro-fondo); }
 
 .nombre-medicamento strong {
   display: block;
@@ -870,6 +937,28 @@ body {
   font-weight: 700;
   font-size: 13px;
   white-space: nowrap;
+}
+
+/* Renglón "grupo": encabezado clickeable de un producto con 2+ lotes en
+   alerta (ver js/alertas.js). Se despliega/repliega tocándolo. */
+.item-alerta-grupo {
+  cursor: pointer;
+  user-select: none;
+}
+.item-alerta-grupo:hover {
+  filter: brightness(0.97);
+}
+
+/* Renglón "lote": el detalle de un lote puntual dentro de un grupo
+   desplegado. Un poco más chico e indentado para marcar la jerarquía. */
+.item-alerta-hija {
+  margin-left: 20px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+.item-alerta-hija .info strong {
+  font-size: 12.5px;
+  font-weight: 600;
 }
 
 /* ---------------------------------------------------------------------

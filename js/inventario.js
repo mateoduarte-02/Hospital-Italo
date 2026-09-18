@@ -7,6 +7,18 @@ import { abrirModalMedicamento } from './medicamentos.js';
 import { abrirModalMovimiento } from './movimientos.js';
 import { abrirModalHistorial } from './historial.js';
 
+// Un lote con stock 0 se marca "dado de baja" automáticamente (ver
+// medicamentos.js / movimientos.js) y por defecto no sirve de nada verlo
+// en la tabla — se oculta, aunque sigue existiendo (con su historial
+// intacto) por si hace falta consultarlo. El check "Mostrar dados de
+// baja" del inventario cambia esto en memoria, sin recargar nada.
+let mostrarDadosDeBaja = false;
+
+export function toggleDadosDeBaja(mostrar) {
+  mostrarDadosDeBaja = mostrar;
+  renderizarTablaMedicamentos();
+}
+
 export function renderizarTablaMedicamentos() {
   const filtro = document.getElementById('buscador-inventario').value.trim().toLowerCase();
   const cuerpo = document.getElementById('cuerpo-tabla-medicamentos');
@@ -18,6 +30,10 @@ export function renderizarTablaMedicamentos() {
     return texto.includes(filtro);
   };
 
+  const medicamentosVisibles = mostrarDadosDeBaja
+    ? estado.medicamentos
+    : estado.medicamentos.filter((m) => m.estado !== 'dado_de_baja');
+
   // Agrupamos por código de barras: varias cajas/lotes del mismo PRODUCTO
   // comparten el mismo código, así que se muestran juntas bajo un solo
   // encabezado (con el stock total y el vencimiento más urgente), en vez
@@ -26,7 +42,7 @@ export function renderizarTablaMedicamentos() {
   const grupos = new Map(); // codigo_barras -> [medicamentos de ese producto]
   const sueltos = [];
 
-  estado.medicamentos.forEach((m) => {
+  medicamentosVisibles.forEach((m) => {
     if (!m.codigo_barras) {
       sueltos.push(m);
       return;
@@ -69,7 +85,14 @@ export function renderizarTablaMedicamentos() {
   document.getElementById('inventario-vacio').classList.toggle('oculto', huboResultados);
 }
 
-document.getElementById('buscador-inventario').addEventListener('input', renderizarTablaMedicamentos);
+// Este módulo se importa (indirectamente, vía datos.js) desde todas las
+// páginas de la app, aunque sus funciones de render solo se llaman
+// realmente en inventario.html — por eso el guard: en cualquier otra
+// página, el buscador de inventario no existe en el DOM.
+const buscadorInventario = document.getElementById('buscador-inventario');
+if (buscadorInventario) {
+  buscadorInventario.addEventListener('input', renderizarTablaMedicamentos);
+}
 
 // Fila "producto": encabezado de un grupo de 2 o más lotes que
 // comparten el mismo código de barras. Muestra el nombre una sola vez,
@@ -232,7 +255,8 @@ export function calcularAlertas() {
 // Actualiza las tarjetas resumen de la parte superior de "Inventario".
 export function renderizarStatsInventario() {
   const { alertasVencimiento, alertasStock } = calcularAlertas();
-  document.getElementById('resumen-total').textContent = estado.medicamentos.length;
+  const activos = estado.medicamentos.filter((m) => m.estado !== 'dado_de_baja');
+  document.getElementById('resumen-total').textContent = activos.length;
   document.getElementById('resumen-stock-bajo').textContent = alertasStock.length;
   document.getElementById('resumen-vencimiento').textContent = alertasVencimiento.length;
 }

@@ -5,21 +5,14 @@
 import { supabaseClient } from './supabase-client.js';
 import { estado } from './estado.js';
 import { escapeHtml, mostrarToast } from './utils.js';
+import { actualizarBadgesSidebar } from './shell.js';
 
-// Se llama desde cargarTodo() (ver datos.js), pero solo trae datos si
-// quien está logueado es admin — la política RLS de "profiles" tampoco
-// dejaría ver perfiles ajenos si no lo fuera (ver migración de gestión de
-// usuarios). Si NO es admin, además limpiamos la tabla explícitamente: la
-// vista "Usuarios" queda oculta en el menú, pero como es una sola página
-// (SPA) que no se recarga entre un logout y el login de otra persona en
-// el mismo navegador, si no la vaciáramos acá podría quedar mostrando
-// datos de la sesión anterior (nombres/emails de otros usuarios).
+// usuarios.html redirige a quien no sea admin antes de llamar a esto (ver
+// main-usuarios.js), pero igual chequeamos acá por las dudas — la
+// política RLS de "profiles" tampoco dejaría ver perfiles ajenos si no
+// lo fuera (ver migración de gestión de usuarios).
 export async function cargarUsuarios() {
-  if (!estado.perfil || estado.perfil.rol !== 'admin') {
-    document.getElementById('cuerpo-tabla-usuarios').innerHTML = '';
-    document.getElementById('badge-usuarios-pendientes').classList.add('oculto');
-    return;
-  }
+  if (!estado.perfil || estado.perfil.rol !== 'admin') return;
 
   const { data, error } = await supabaseClient
     .from('profiles')
@@ -39,18 +32,12 @@ function chipEstadoCuenta(estadoCuenta) {
   return `<span class="chip chip-${estadoCuenta}">${textos[estadoCuenta] || estadoCuenta}</span>`;
 }
 
-// Arma la tabla de usuarios y el numerito de "pendientes" en el menú
-// lateral. No dejamos que un admin se apruebe/rechace/desadministre a sí
-// mismo desde acá (fila sin botones) para que no se pueda quedar sin
-// ningún admin por accidente.
+// Arma la tabla de usuarios. No dejamos que un admin se
+// apruebe/rechace/desadministre a sí mismo desde acá (fila sin botones)
+// para que no se pueda quedar sin ningún admin por accidente.
 function renderizarTablaUsuarios(usuarios) {
   const cuerpo = document.getElementById('cuerpo-tabla-usuarios');
   cuerpo.innerHTML = '';
-
-  const pendientes = usuarios.filter((u) => u.estado_cuenta === 'pendiente').length;
-  const badge = document.getElementById('badge-usuarios-pendientes');
-  badge.textContent = pendientes;
-  badge.classList.toggle('oculto', pendientes === 0);
 
   usuarios.forEach((u) => {
     const esUnoMismo = u.id === estado.usuario.id;
@@ -101,6 +88,7 @@ async function cambiarEstadoCuenta(idUsuario, nuevoEstado) {
   }
   mostrarToast(nuevoEstado === 'aprobado' ? 'Usuario aprobado' : 'Usuario rechazado');
   await cargarUsuarios();
+  await actualizarBadgesSidebar();
 }
 
 async function cambiarRol(idUsuario, nuevoRol) {

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Historial - Hospital Dr. Luis Mario Marini</title>
+
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body data-pagina="historial" data-titulo="Historial de Movimientos (Auditoría)">
+
+  <div class="pantalla-app">
+    <aside class="sidebar" id="shell-sidebar"></aside>
+
+    <div class="panel-principal">
+      <header class="header-vista" id="shell-header"></header>
+      <p id="scanner-mensaje" class="scanner-mensaje"></p>
+
+      <main class="contenido">
+        <section id="vista-historial" class="vista activa">
+          <div class="tabla-wrapper">
+            <table class="tabla tabla-historial">
+              <thead>
+                <tr>
+                  <th>Fecha y hora</th>
+                  <th>Usuario</th>
+                  <th>Medicamento</th>
+                  <th>Tipo</th>
+                  <th>Cantidad</th>
+                  <th>Observaciones</th>
+                </tr>
+              </thead>
+              <tbody id="cuerpo-tabla-movimientos"></tbody>
+            </table>
+            <p id="movimientos-vacio" class="texto-vacio oculto">Todavía no hay movimientos registrados.</p>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div id="toast" class="toast oculto"></div>
+
+  <script type="module" src="js/main-historial.js"></script>
+</body>
+</html>

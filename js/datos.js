@@ -1,32 +1,17 @@
 // =========================================================================
 // CARGA DE DATOS
 // =========================================================================
+// Cada página trae solo lo que necesita para lo suyo (ver las funciones
+// cargarInventario/cargarHistorial/cargarAlertas al final), en vez de
+// traer las 3 tablas siempre como hacía la versión de una sola página.
 import { supabaseClient } from './supabase-client.js';
 import { estado } from './estado.js';
 import { mostrarToast } from './utils.js';
 import { renderizarTablaMedicamentos, renderizarStatsInventario } from './inventario.js';
 import { renderizarAlertas } from './alertas.js';
 import { renderizarTablaMovimientos } from './historial.js';
-import { cargarUsuarios } from './usuarios.js';
 
-// Trae de Supabase las tablas que necesitamos y vuelve a dibujar toda la
-// pantalla. La llamamos al iniciar sesión y después de cada operación que
-// modifique datos (alta, ingreso, retiro, ajuste, aprobar un usuario).
-export async function cargarTodo() {
-  await Promise.all([
-    cargarPerfiles(),
-    cargarMedicamentos(),
-    cargarMovimientos(),
-    cargarUsuarios(), // no hace nada si quien está logueado no es admin
-  ]);
-
-  renderizarTablaMedicamentos();
-  renderizarStatsInventario();
-  renderizarAlertas();
-  renderizarTablaMovimientos();
-}
-
-async function cargarPerfiles() {
+export async function cargarPerfiles() {
   const { data, error } = await supabaseClient.from('profiles').select('id, nombre');
   if (error) {
     console.error('Error cargando perfiles:', error);
@@ -36,7 +21,7 @@ async function cargarPerfiles() {
   data.forEach((p) => { estado.perfiles[p.id] = p.nombre; });
 }
 
-async function cargarMedicamentos() {
+export async function cargarMedicamentos() {
   const { data, error } = await supabaseClient
     .from('medicamentos')
     .select('*')
@@ -50,7 +35,7 @@ async function cargarMedicamentos() {
   estado.medicamentos = data;
 }
 
-async function cargarMovimientos() {
+export async function cargarMovimientos() {
   // Traemos el nombre del medicamento "embebido" gracias a la relación
   // (foreign key) entre movimientos.medicamento_id y medicamentos.id.
   const { data, error } = await supabaseClient
@@ -63,4 +48,27 @@ async function cargarMovimientos() {
     return;
   }
   estado.movimientos = data;
+}
+
+// --- Orquestación por página ---
+
+// inventario.html: necesita medicamentos (la tabla en sí), perfiles y
+// movimientos (para el modal "historial de este medicamento" que se abre
+// desde cada fila).
+export async function cargarInventario() {
+  await Promise.all([cargarPerfiles(), cargarMedicamentos(), cargarMovimientos()]);
+  renderizarTablaMedicamentos();
+  renderizarStatsInventario();
+}
+
+// historial.html: la tabla general de auditoría.
+export async function cargarHistorial() {
+  await Promise.all([cargarPerfiles(), cargarMovimientos()]);
+  renderizarTablaMovimientos();
+}
+
+// alertas.html: solo necesita medicamentos.
+export async function cargarAlertas() {
+  await cargarMedicamentos();
+  renderizarAlertas();
 }

@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inventario - Hospital Dr. Luis Mario Marini</title>
+
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<!-- data-pagina / data-titulo: los lee js/shell.js para saber qué ítem
+     del menú marcar como activo y qué título poner en el encabezado. -->
+<body data-pagina="inventario" data-titulo="Control de Inventario y Medicamentos">
+
+  <div class="pantalla-app">
+    <!-- El menú lateral lo arma js/shell.js (ver iniciarShell) -->
+    <aside class="sidebar" id="shell-sidebar"></aside>
+
+    <div class="panel-principal">
+      <!-- El encabezado (título + buscador de escáner) también lo arma
+           js/shell.js -->
+      <header class="header-vista" id="shell-header"></header>
+      <p id="scanner-mensaje" class="scanner-mensaje"></p>
+
+      <main class="contenido">
+        <section id="vista-inventario" class="vista activa">
+
+          <!-- Tarjetas resumen: dan un pantallazo del estado general del
+               stock sin tener que entrar a buscarlo. -->
+          <div class="tarjetas-resumen">
+            <div class="tarjeta-resumen">
+              <span class="resumen-icono resumen-icono-info">📦</span>
+              <div>
+                <span class="resumen-etiqueta">Medicamentos registrados</span>
+                <span class="resumen-valor" id="resumen-total">0</span>
+              </div>
+            </div>
+            <a class="tarjeta-resumen tarjeta-resumen-link" href="alertas.html#alertas-stock">
+              <span class="resumen-icono resumen-icono-alerta">⚠️</span>
+              <div>
+                <span class="resumen-etiqueta">Stock bajo</span>
+                <span class="resumen-valor" id="resumen-stock-bajo">0</span>
+              </div>
+            </a>
+            <a class="tarjeta-resumen tarjeta-resumen-link" href="alertas.html#alertas-vencimiento">
+              <span class="resumen-icono resumen-icono-critico">⏳</span>
+              <div>
+                <span class="resumen-etiqueta">Próximos a vencer / vencidos</span>
+                <span class="resumen-valor" id="resumen-vencimiento">0</span>
+              </div>
+            </a>
+          </div>
+
+          <div class="barra-acciones">
+            <input type="search" id="buscador-inventario" placeholder="Buscar por nombre, lote o código de barras..." />
+            <label class="check-dados-baja">
+              <input type="checkbox" id="check-dados-baja" />
+              Mostrar dados de baja
+            </label>
+            <button id="btn-abrir-alta" class="btn btn-primario">+ Agregar medicamento</button>
+          </div>
+
+          <div class="tabla-wrapper">
+            <table class="tabla" id="tabla-medicamentos">
+              <thead>
+                <tr>
+                  <th>Medicamento</th>
+                  <th>Lote</th>
+                  <th>Categoría</th>
+                  <th>Stock actual</th>
+                  <th>Vencimiento</th>
+                  <th>Estado</th>
+                  <th>Código</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="cuerpo-tabla-medicamentos">
+                <!-- Las filas se generan dinámicamente desde js/inventario.js -->
+              </tbody>
+            </table>
+            <p id="inventario-vacio" class="texto-vacio oculto">No hay medicamentos cargados todavía.</p>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+
+  <!-- =====================================================================
+       MODAL: ALTA / EDICIÓN DE MEDICAMENTO
+  ====================================================================== -->
+  <div id="modal-medicamento" class="modal-fondo oculto">
+    <div class="modal-caja">
+      <div class="modal-header">
+        <h2 id="titulo-modal-medicamento">Agregar medicamento</h2>
+        <button class="btn-cerrar" data-cerrar-modal="modal-medicamento">✕</button>
+      </div>
+
+      <form id="form-medicamento" class="form-grid">
+        <input type="hidden" id="med-id" />
+
+        <div class="campo">
+          <label for="med-codigo-barras">Código de barras / QR</label>
+          <input type="text" id="med-codigo-barras" placeholder="Escanear o escribir código" />
+        </div>
+
+        <div class="campo">
+          <label for="med-nombre-generico">Nombre genérico *</label>
+          <input type="text" id="med-nombre-generico" required placeholder="Ej: Paracetamol" />
+        </div>
+
+        <div class="campo">
+          <label for="med-nombre-comercial">Nombre comercial</label>
+          <input type="text" id="med-nombre-comercial" placeholder="Ej: Tafirol" />
+        </div>
+
+        <div class="campo">
+          <label for="med-lote">Lote</label>
+          <input type="text" id="med-lote" />
+        </div>
+
+        <div class="campo">
+          <label for="med-categoria">Categoría</label>
+          <input type="text" id="med-categoria" placeholder="Ej: Analgésico" />
+        </div>
+
+        <div class="campo">
+          <label for="med-unidad">Unidad</label>
+          <input type="text" id="med-unidad" placeholder="Ej: comprimidos, ampollas, ml" />
+        </div>
+
+        <div class="campo">
+          <label for="med-stock-actual">Stock actual *</label>
+          <input type="number" id="med-stock-actual" min="0" step="1" required value="0" />
+        </div>
+
+        <div class="campo">
+          <label for="med-stock-minimo">Stock mínimo *</label>
+          <input type="number" id="med-stock-minimo" min="0" step="1" required value="0" />
+        </div>
+
+        <div class="campo">
+          <label for="med-fecha-ingreso">Fecha de ingreso</label>
+          <input type="date" id="med-fecha-ingreso" />
+        </div>
+
+        <div class="campo">
+          <label for="med-fecha-vencimiento">Fecha de vencimiento</label>
+          <input type="date" id="med-fecha-vencimiento" />
+        </div>
+
+        <div class="campo">
+          <label for="med-condicion">Condición de almacenamiento</label>
+          <select id="med-condicion">
+            <option value="ambiente">Ambiente</option>
+            <option value="refrigerado">Refrigerado</option>
+            <option value="cadena_frio">Cadena de frío</option>
+          </select>
+        </div>
+
+        <div class="campo">
+          <label for="med-ubicacion">Ubicación física</label>
+          <input type="text" id="med-ubicacion" placeholder="Ej: Farmacia central - Estante 3" />
+        </div>
+
+        <div class="campo">
+          <label for="med-proveedor">Proveedor</label>
+          <input type="text" id="med-proveedor" placeholder="Ej: Droguería del Sur" />
+        </div>
+
+        <div class="campo">
+          <label for="med-estado">Estado</label>
+          <select id="med-estado">
+            <option value="activo">Activo</option>
+            <option value="vencido">Vencido</option>
+            <option value="dado_de_baja">Dado de baja</option>
+          </select>
+        </div>
+
+        <p id="medicamento-error" class="mensaje-error oculto"></p>
+
+        <div class="modal-acciones">
+          <button type="button" class="btn btn-secundario" data-cerrar-modal="modal-medicamento">Cancelar</button>
+          <button type="submit" class="btn btn-primario">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- =====================================================================
+       MODAL: INGRESO / RETIRO DE STOCK
+  ====================================================================== -->
+  <div id="modal-movimiento" class="modal-fondo oculto">
+    <div class="modal-caja modal-chica">
+      <div class="modal-header">
+        <h2 id="titulo-modal-movimiento">Movimiento de stock</h2>
+        <button class="btn-cerrar" data-cerrar-modal="modal-movimiento">✕</button>
+      </div>
+
+      <form id="form-movimiento">
+        <input type="hidden" id="mov-medicamento-id" />
+        <input type="hidden" id="mov-tipo" />
+
+        <p><strong id="mov-nombre-medicamento"></strong></p>
+        <p class="subtexto">Stock actual: <span id="mov-stock-actual-texto">0</span></p>
+
+        <div class="mov-tipo-toggle" role="group" aria-label="Tipo de movimiento">
+          <button type="button" class="mov-tipo-boton" data-tipo="ingreso">⬆️ Ingreso</button>
+          <button type="button" class="mov-tipo-boton" data-tipo="retiro">⬇️ Retiro</button>
+        </div>
+
+        <label for="mov-cantidad">Cantidad *</label>
+        <input type="number" id="mov-cantidad" min="1" step="1" required inputmode="numeric" autofocus />
+
+        <div id="mov-preview" class="preview-resultado oculto"></div>
+
+        <div id="mov-pr-seccion" class="oculto">
+          <input type="hidden" id="mov-pr" value="no" />
+          <label>¿Con receta (PR)?</label>
+          <div class="mov-tipo-toggle" role="group" aria-label="Con o sin receta">
+            <button type="button" class="mov-pr-boton" data-pr="no">Sin PR</button>
+            <button type="button" class="mov-pr-boton" data-pr="si">Con PR</button>
+          </div>
+
+          <div id="mov-pr-campos" class="oculto">
+            <label for="mov-pr-paciente">Paciente *</label>
+            <input type="text" id="mov-pr-paciente" placeholder="Nombre y apellido del paciente" />
+
+            <label for="mov-pr-medico">Médico *</label>
+            <input type="text" id="mov-pr-medico" placeholder="Nombre y apellido del médico" />
+          </div>
+        </div>
+
+        <label for="mov-observaciones">Observaciones (opcional)</label>
+        <textarea id="mov-observaciones" rows="3" placeholder="Ej: entrega a guardia, devolución de sala, etc."></textarea>
+
+        <p id="movimiento-error" class="mensaje-error oculto"></p>
+
+        <div class="modal-acciones">
+          <button type="button" class="btn btn-secundario" data-cerrar-modal="modal-movimiento">Cancelar</button>
+          <button type="submit" class="btn btn-primario" id="btn-confirmar-movimiento">Confirmar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- =====================================================================
+       MODAL: HISTORIAL DE UN MEDICAMENTO PUNTUAL
+  ====================================================================== -->
+  <div id="modal-historial" class="modal-fondo oculto">
+    <div class="modal-caja">
+      <div class="modal-header">
+        <h2 id="titulo-modal-historial">Historial del medicamento</h2>
+        <button class="btn-cerrar" data-cerrar-modal="modal-historial">✕</button>
+      </div>
+      <div class="tabla-wrapper">
+        <table class="tabla">
+          <thead>
+            <tr>
+              <th>Fecha y hora</th>
+              <th>Usuario</th>
+              <th>Tipo</th>
+              <th>Cantidad</th>
+              <th>Observaciones</th>
+            </tr>
+          </thead>
+          <tbody id="cuerpo-tabla-historial"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast oculto"></div>
+
+  <script type="module" src="js/main-inventario.js"></script>
+</body>
+</html>

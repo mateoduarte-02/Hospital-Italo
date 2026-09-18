@@ -6,42 +6,64 @@
 // mandan un Enter automáticamente. Por eso alcanza con escuchar el evento
 // "keydown" de este input y reaccionar cuando la tecla es "Enter".
 import { estado } from './estado.js';
-import { cambiarVista } from './utils.js';
 import { renderizarTablaMedicamentos } from './inventario.js';
 import { abrirModalMovimiento } from './movimientos.js';
 import { abrirModalMedicamento } from './medicamentos.js';
 
-const inputScanner = document.getElementById('input-scanner');
-inputScanner.addEventListener('keydown', (e) => {
-  if (e.key !== 'Enter') return;
-  e.preventDefault();
+// Se llama desde main-inventario.js, después de que js/shell.js terminó
+// de armar el header (que es donde vive el input de escaneo) — si
+// tratáramos de engancharnos antes, el elemento todavía no existiría en
+// el DOM.
+export function iniciarScanner() {
+  const inputScanner = document.getElementById('input-scanner');
 
-  const codigo = inputScanner.value.trim();
-  inputScanner.value = '';
+  inputScanner.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+
+    const codigo = inputScanner.value.trim();
+    inputScanner.value = '';
+    if (!codigo) return;
+
+    buscarPorCodigoBarras(codigo);
+  });
+
+  // Mantenemos el foco en el campo de escaneo la mayor parte del tiempo,
+  // para que el/la usuario/a pueda escanear sin tener que hacer clic
+  // antes. Si se abre un modal, dejamos de forzar el foco (para no
+  // interrumpir al que esté escribiendo en un formulario).
+  document.addEventListener('click', (e) => {
+    const hayModalAbierto = document.querySelector('.modal-fondo:not(.oculto)');
+    if (hayModalAbierto) return;
+
+    // Si el clic fue sobre otro campo editable (un buscador, un input de
+    // un formulario, etc.), respetamos esa elección: la persona quiere
+    // escribir ahí, no en el escáner. Sólo devolvemos el foco al escáner
+    // cuando se hizo clic en una parte "neutra" de la página (el fondo,
+    // una fila de la tabla, un botón que no sea de texto, etc.).
+    const elementoClickeado = e.target;
+    const esCampoEditable = elementoClickeado.closest('input, textarea, select');
+    if (esCampoEditable) return;
+
+    inputScanner.focus();
+  });
+
+  procesarCodigoDesdeURL();
+}
+
+// Si llegamos acá con "?codigo=..." en la URL (porque alguien escaneó
+// desde otra página, ver wirearEscanerGlobal en shell.js), procesamos ese
+// código como si se hubiera escaneado directamente acá, y limpiamos el
+// parámetro de la URL para que no se vuelva a disparar si se recarga la
+// página.
+function procesarCodigoDesdeURL() {
+  const params = new URLSearchParams(window.location.search);
+  const codigo = params.get('codigo');
   if (!codigo) return;
 
+  window.history.replaceState({}, '', window.location.pathname);
   buscarPorCodigoBarras(codigo);
-});
-
-// Mantenemos el foco en el campo de escaneo la mayor parte del tiempo,
-// para que el/la usuario/a pueda escanear sin tener que hacer clic antes.
-// Si se abre un modal, dejamos de forzar el foco (para no interrumpir al
-// que esté escribiendo en un formulario).
-document.addEventListener('click', (e) => {
-  const hayModalAbierto = document.querySelector('.modal-fondo:not(.oculto)');
-  if (hayModalAbierto) return;
-
-  // Si el clic fue sobre otro campo editable (un buscador, un input de
-  // un formulario, etc.), respetamos esa elección: la persona quiere
-  // escribir ahí, no en el escáner. Sólo devolvemos el foco al escáner
-  // cuando se hizo clic en una parte "neutra" de la página (el fondo,
-  // una fila de la tabla, un botón que no sea de texto, etc.).
-  const elementoClickeado = e.target;
-  const esCampoEditable = elementoClickeado.closest('input, textarea, select');
-  if (esCampoEditable) return;
-
-  inputScanner.focus();
-});
+}
 
 // -------------------------------------------------------------------------
 // Parser de códigos GS1 (sistema de trazabilidad de medicamentos ANMAT,
@@ -173,7 +195,6 @@ function buscarPorCodigoBarras(textoEscaneado) {
     // las filas encontradas (para que quede visible de qué lote se va a
     // descontar el retiro que se abre a continuación).
     if (coincidencias.length > 1) estado.gruposExpandidos.add(codigo);
-    cambiarVista('vista-inventario');
     document.getElementById('buscador-inventario').value = nombreProducto;
     renderizarTablaMedicamentos();
 
