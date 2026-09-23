@@ -53,17 +53,23 @@ function renderizarTablaUsuarios(usuarios) {
     if (!esUnoMismo) {
       const acciones = tr.querySelector('.acciones-fila');
 
-      if (u.estado_cuenta !== 'aprobado') {
-        acciones.appendChild(crearBotonAccion('Aprobar', 'btn-ingreso', () => cambiarEstadoCuenta(u.id, 'aprobado')));
+      // Dos juegos de botones bien separados: mientras la cuenta no está
+      // aprobada, solo importa aceptarla o rechazarla. Una vez aprobada,
+      // esas acciones ya no tienen sentido y pasan a las de gestión del
+      // usuario activo (sacarlo del sistema, o darle/sacarle admin).
+      if (u.estado_cuenta === 'aprobado') {
+        acciones.appendChild(crearBotonAccion('Eliminar', 'btn-retiro', () => cambiarEstadoCuenta(u.id, 'rechazado')));
+        acciones.appendChild(crearBotonAccion(
+          u.rol === 'admin' ? 'Quitar admin' : 'Hacer admin',
+          'btn-secundario',
+          () => cambiarRol(u.id, u.rol === 'admin' ? 'usuario' : 'admin')
+        ));
+      } else {
+        acciones.appendChild(crearBotonAccion('Aceptar', 'btn-ingreso', () => cambiarEstadoCuenta(u.id, 'aprobado')));
+        if (u.estado_cuenta !== 'rechazado') {
+          acciones.appendChild(crearBotonAccion('Rechazar', 'btn-retiro', () => cambiarEstadoCuenta(u.id, 'rechazado')));
+        }
       }
-      if (u.estado_cuenta !== 'rechazado') {
-        acciones.appendChild(crearBotonAccion('Rechazar', 'btn-retiro', () => cambiarEstadoCuenta(u.id, 'rechazado')));
-      }
-      acciones.appendChild(crearBotonAccion(
-        u.rol === 'admin' ? 'Quitar admin' : 'Hacer admin',
-        'btn-secundario',
-        () => cambiarRol(u.id, u.rol === 'admin' ? 'usuario' : 'admin')
-      ));
     }
 
     cuerpo.appendChild(tr);

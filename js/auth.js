@@ -11,15 +11,22 @@ import { supabaseClient } from './supabase-client.js';
 export async function iniciarApp() {
   const { data: { session } } = await supabaseClient.auth.getSession();
 
-  if (session) {
-    await manejarSesionIniciada(session.user);
-  } else {
+  if (!session) {
     mostrarPantallaLogin();
   }
 
+  // Un solo lugar para reaccionar a "hay sesión": cubre el login manual, el
+  // registro con confirmación de email desactivada, Y el caso que se nos
+  // estaba escapando (usuario que confirma el email por el link, vuelve acá
+  // con la sesión ya armada por supabase-js, pero después de que el chequeo
+  // de arriba ya había mostrado la pantalla de login). Antes ese último
+  // caso nunca llamaba a manejarSesionIniciada, así que el perfil nunca se
+  // creaba y la cuenta quedaba invisible para los admins en "Usuarios".
   supabaseClient.auth.onAuthStateChange((evento, session) => {
     if (evento === 'SIGNED_OUT') {
       mostrarPantallaLogin();
+    } else if (session) {
+      manejarSesionIniciada(session.user);
     }
   });
 }
@@ -32,7 +39,7 @@ document.getElementById('form-login').addEventListener('submit', async (e) => {
   const errorEl = document.getElementById('login-error');
   errorEl.classList.add('oculto');
 
-  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+  const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
 
   if (error) {
     errorEl.textContent = 'No se pudo iniciar sesión: revisá el email y la contraseña.';
@@ -40,7 +47,8 @@ document.getElementById('form-login').addEventListener('submit', async (e) => {
     return;
   }
 
-  await manejarSesionIniciada(data.user);
+  // No hace falta llamar a manejarSesionIniciada acá: signInWithPassword ya
+  // dispara un evento 'SIGNED_IN' que el listener de iniciarApp() atiende.
 });
 
 // --- Alternar entre "Iniciar sesión" y "Crear cuenta" ---
@@ -88,17 +96,17 @@ document.getElementById('form-registro').addEventListener('submit', async (e) =>
 
   nombrePendienteRegistro = nombre;
 
-  if (data.session) {
-    // El proyecto tiene la confirmación por email desactivada: ya queda
-    // una sesión activa. Entramos directo (va a mostrar la pantalla de
-    // "pendiente de aprobación", no la app).
-    await manejarSesionIniciada(data.user);
-  } else {
-    // El proyecto pide confirmar el email antes de poder iniciar sesión.
+  if (!data.session) {
+    // El proyecto pide confirmar el email antes de poder iniciar sesión:
+    // todavía no hay nada que hacer acá, el perfil se crea solo cuando
+    // vuelva con la sesión ya confirmada (ver el listener en iniciarApp()).
     exitoEl.textContent = 'Cuenta creada. Revisá tu email para confirmarla y después iniciá sesión (va a quedar pendiente de aprobación de un administrador).';
     exitoEl.classList.remove('oculto');
     document.getElementById('form-registro').reset();
   }
+  // Si el proyecto tiene la confirmación por email desactivada, signUp ya
+  // deja una sesión activa y dispara 'SIGNED_IN' solo: no hace falta llamar
+  // a manejarSesionIniciada acá, lo atiende el listener de iniciarApp().
 });
 
 // Botón de cerrar sesión desde la pantalla de "pendiente"
@@ -141,13 +149,28 @@ async function obtenerOCrearPerfil(usuario) {
   const nombrePorDefecto = nombrePendienteRegistro || usuario.email.split('@')[0];
   nombrePendienteRegistro = null;
 
-  const { data: perfilNuevo } = await supabaseClient
+  const { data: perfilNuevo, error } = await supabaseClient
     .from('profiles')
     .insert({ id: usuario.id, nombre: nombrePorDefecto, email: usuario.email })
     .select()
     .single();
 
-  return perfilNuevo || { nombre: nombrePorDefecto, rol: 'usuario', estado_cuenta: 'pendiente' };
+  if (error) {
+    console.error('No se pudo crear el perfil del usuario nuevo:', error);
+    // Puede que se haya creado en otra llamada en paralelo justo antes
+    // (carrera entre pestañas, o entre el chequeo inicial y el evento
+    // SIGNED_IN): releemos antes de rendirnos.
+    const { data: perfilTrasError } = await supabaseClient
+      .from('profiles')
+      .select('*')
+      .eq('id', usuario.id)
+      .maybeSingle();
+    if (perfilTrasError) {
+      return perfilTrasError;
+    }
+  }
+
+  return perfilNuevo || { id: usuario.id, nombre: nombrePorDefecto, rol: 'usuario', estado_cuenta: 'pendiente' };
 }
 
 function mostrarPantallaLogin() {
