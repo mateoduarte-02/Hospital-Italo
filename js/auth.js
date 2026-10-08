@@ -51,6 +51,19 @@ document.getElementById('form-login').addEventListener('submit', async (e) => {
   // dispara un evento 'SIGNED_IN' que el listener de iniciarApp() atiende.
 });
 
+// --- Mostrar/ocultar la contraseña (el "ojito") en login y registro ---
+document.querySelectorAll('.btn-ver-password').forEach((boton) => {
+  boton.addEventListener('click', () => {
+    const input = document.getElementById(boton.dataset.para);
+    const mostrando = input.type === 'text';
+    input.type = mostrando ? 'password' : 'text';
+    boton.querySelector('.icono-ojo-abierto').classList.toggle('oculto', !mostrando);
+    boton.querySelector('.icono-ojo-cerrado').classList.toggle('oculto', mostrando);
+    boton.setAttribute('aria-label', mostrando ? 'Mostrar contraseña' : 'Ocultar contraseña');
+    boton.setAttribute('aria-pressed', String(!mostrando));
+  });
+});
+
 // --- Alternar entre "Iniciar sesión" y "Crear cuenta" ---
 document.getElementById('btn-ir-a-registro').addEventListener('click', () => {
   document.getElementById('form-login').classList.add('oculto');
