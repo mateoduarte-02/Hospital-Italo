@@ -4,6 +4,7 @@
 // js/shell.js y redirigen para acá si hace falta.
 // =========================================================================
 import { supabaseClient } from './supabase-client.js';
+import { esErrorDeConexion, hayConexionConLaBase, MENSAJE_SIN_CONEXION } from './conexion.js';
 
 // Al cargar la página, nos fijamos si ya existe una sesión guardada
 // (Supabase la guarda sola en el navegador). Si existe y está aprobada,
@@ -13,6 +14,16 @@ export async function iniciarApp() {
 
   if (!session) {
     mostrarPantallaLogin();
+    // Sin sesión no hay ninguna consulta a la base todavía, así que
+    // chequeamos nosotros: si Supabase está pausado, avisamos ya, antes de
+    // que la persona escriba sus datos para nada.
+    if (!(await hayConexionConLaBase())) {
+      ['login-error', 'registro-error'].forEach((id) => {
+        const el = document.getElementById(id);
+        el.textContent = MENSAJE_SIN_CONEXION;
+        el.classList.remove('oculto');
+      });
+    }
   }
 
   // Un solo lugar para reaccionar a "hay sesión": cubre el login manual, el
@@ -42,7 +53,9 @@ document.getElementById('form-login').addEventListener('submit', async (e) => {
   const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
 
   if (error) {
-    errorEl.textContent = 'No se pudo iniciar sesión: revisá el email y la contraseña.';
+    errorEl.textContent = esErrorDeConexion(error)
+      ? MENSAJE_SIN_CONEXION
+      : 'No se pudo iniciar sesión: revisá el email y la contraseña.';
     errorEl.classList.remove('oculto');
     return;
   }
@@ -100,9 +113,13 @@ document.getElementById('form-registro').addEventListener('submit', async (e) =>
   const { data, error } = await supabaseClient.auth.signUp({ email, password });
 
   if (error) {
-    errorEl.textContent = error.message.toLowerCase().includes('already registered')
-      ? 'Ese email ya tiene una cuenta creada.'
-      : 'No se pudo crear la cuenta. Revisá los datos e intentá de nuevo.';
+    if (esErrorDeConexion(error)) {
+      errorEl.textContent = MENSAJE_SIN_CONEXION;
+    } else {
+      errorEl.textContent = error.message.toLowerCase().includes('already registered')
+        ? 'Ese email ya tiene una cuenta creada.'
+        : 'No se pudo crear la cuenta. Revisá los datos e intentá de nuevo.';
+    }
     errorEl.classList.remove('oculto');
     return;
   }
@@ -134,6 +151,14 @@ document.getElementById('btn-logout-pendiente').addEventListener('click', async 
 async function manejarSesionIniciada(usuario) {
   const perfil = await obtenerOCrearPerfil(usuario);
 
+  if (!perfil) {
+    mostrarPantallaLogin();
+    const errorEl = document.getElementById('login-error');
+    errorEl.textContent = MENSAJE_SIN_CONEXION;
+    errorEl.classList.remove('oculto');
+    return;
+  }
+
   if (perfil.estado_cuenta !== 'aprobado') {
     mostrarPantallaPendiente(perfil.estado_cuenta);
     return;
@@ -149,11 +174,15 @@ async function manejarSesionIniciada(usuario) {
 // default de esas columnas en la base), así que hace falta que un admin
 // la apruebe antes de poder usar el sistema.
 async function obtenerOCrearPerfil(usuario) {
-  const { data: perfilExistente } = await supabaseClient
+  const { data: perfilExistente, error: errorLectura } = await supabaseClient
     .from('profiles')
     .select('*')
     .eq('id', usuario.id)
     .maybeSingle();
+
+  if (esErrorDeConexion(errorLectura)) {
+    return null;
+  }
 
   if (perfilExistente) {
     return perfilExistente;
@@ -167,6 +196,10 @@ async function obtenerOCrearPerfil(usuario) {
     .insert({ id: usuario.id, nombre: nombrePorDefecto, email: usuario.email })
     .select()
     .single();
+
+  if (esErrorDeConexion(error)) {
+    return null;
+  }
 
   if (error) {
     console.error('No se pudo crear el perfil del usuario nuevo:', error);

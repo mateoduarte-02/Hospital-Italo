@@ -7,6 +7,7 @@
 // =========================================================================
 import { supabaseClient } from './supabase-client.js';
 import { estado } from './estado.js';
+import { esErrorDeConexion, mostrarPantallaSinConexion } from './conexion.js';
 
 const NAV = [
   { pagina: 'inventario', archivo: 'inventario.html', icono: '📦', texto: 'Inventario' },
@@ -36,6 +37,11 @@ export async function iniciarShell() {
     .select('*')
     .eq('id', session.user.id)
     .maybeSingle();
+
+  if (esErrorDeConexion(error)) {
+    mostrarPantallaSinConexion();
+    return null;
+  }
 
   if (error || !perfil || perfil.estado_cuenta !== 'aprobado') {
     window.location.href = 'index.html';

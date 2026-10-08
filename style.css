@@ -1141,6 +1141,29 @@ body {
   margin-top: 6px;
 }
 
+.aviso-conexion {
+  max-width: 420px;
+  margin: 18vh auto 0;
+  padding: 0 20px;
+  text-align: center;
+}
+
+.aviso-conexion-icono {
+  font-size: 40px;
+}
+
+.aviso-conexion h1 {
+  font-size: 20px;
+  margin: 12px 0 8px;
+  color: var(--color-texto);
+}
+
+.aviso-conexion p {
+  color: var(--color-texto-secundario);
+  margin: 0 0 18px;
+  line-height: 1.5;
+}
+
 .mensaje-error {
   grid-column: 1 / -1;
   background: var(--color-critico-fondo);
