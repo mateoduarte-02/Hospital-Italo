@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Hospital Dr. Luis Mario Marini - Gestión de Stock</title>
 
+  <!-- Aplica el modo claro/oscuro antes de dibujar la página (sin "flash") -->
+  <script src="js/tema-inicial.js"></script>
   <link rel="stylesheet" href="style.css" />
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
 
@@ -17,6 +19,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+  <button type="button" class="login-tema" data-alternar-tema title="Cambiar entre modo claro y oscuro" aria-label="Cambiar entre modo claro y oscuro"><span class="tema-si-claro"><svg class="icono" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></span><span class="tema-si-oscuro"><svg class="icono" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.9 4.9 1.4 1.4"/><path d="m17.7 17.7 1.4 1.4"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m4.9 19.1 1.4-1.4"/><path d="m17.7 6.3 1.4-1.4"/></svg></span></button>
 
   <!-- =====================================================================
        PANTALLA DE LOGIN / REGISTRO
@@ -28,7 +31,7 @@
   <section id="pantalla-login" class="pantalla-login">
     <div class="tarjeta-login">
       <div class="login-header">
-        <span class="login-icono" aria-hidden="true">💊</span>
+        <span class="login-icono" aria-hidden="true"><svg class="marca" width="40" height="40" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="var(--marca-fondo)"/><path d="M13 7h6v6h6v6h-6v6h-6v-6H7v-6h6z" fill="var(--marca-cruz)"/></svg></span>
         <h1>Hospital Dr. Luis Mario Marini</h1>
         <p>Sistema de gestión de stock de medicamentos</p>
       </div>
@@ -96,7 +99,7 @@
   <section id="pantalla-pendiente" class="pantalla-login oculto">
     <div class="tarjeta-login">
       <div class="login-header">
-        <span class="login-icono" aria-hidden="true" id="pendiente-icono">⏳</span>
+        <span class="login-icono" aria-hidden="true" id="pendiente-icono"><svg class="icono" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
         <h1 id="pendiente-titulo">Cuenta pendiente de aprobación</h1>
         <p id="pendiente-texto">
           Tu cuenta ya se creó, pero todavía no fue habilitada por un

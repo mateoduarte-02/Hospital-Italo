@@ -9,6 +9,7 @@ import { estado } from './estado.js';
 import { renderizarTablaMedicamentos } from './inventario.js';
 import { abrirModalMovimiento } from './movimientos.js';
 import { abrirModalMedicamento } from './medicamentos.js';
+import { escanearConCamara, hayCamara } from './camara.js';
 
 // Se llama desde main-inventario.js, después de que js/shell.js terminó
 // de armar el header (que es donde vive el input de escaneo) — si
@@ -32,9 +33,15 @@ export function iniciarScanner() {
   // para que el/la usuario/a pueda escanear sin tener que hacer clic
   // antes. Si se abre un modal, dejamos de forzar el foco (para no
   // interrumpir al que esté escribiendo en un formulario).
+  // En celulares y tablets NO: ahí no hay lector USB, y enfocar el campo
+  // abriría el teclado en pantalla cada vez que se toca algo.
+  const esPantallaTactil = window.matchMedia && window.matchMedia('(hover: none)').matches;
+
   document.addEventListener('click', (e) => {
+    if (esPantallaTactil) return;
     const hayModalAbierto = document.querySelector('.modal-fondo:not(.oculto)');
     if (hayModalAbierto) return;
+    if (e.target.closest('.check-con-ayuda, .camara-capa')) return;
 
     // Si el clic fue sobre otro campo editable (un buscador, un input de
     // un formulario, etc.), respetamos esa elección: la persona quiere
@@ -47,6 +54,17 @@ export function iniciarScanner() {
 
     inputScanner.focus();
   });
+
+  // Botón "Cámara" (se ve en el celular): lee el código con la cámara y
+  // lo procesa exactamente igual que si viniera del lector USB.
+  const botonCamara = document.getElementById('btn-camara');
+  if (botonCamara) {
+    if (!hayCamara()) botonCamara.classList.add('oculto');
+    botonCamara.addEventListener('click', async () => {
+      const texto = await escanearConCamara();
+      if (texto) buscarPorCodigoBarras(texto);
+    });
+  }
 
   procesarCodigoDesdeURL();
 }
@@ -87,9 +105,110 @@ function procesarCodigoDesdeURL() {
 // Si el texto escaneado no tiene ninguna de estas estructuras (por
 // ejemplo, un código de barras común de 13 dígitos), se lo devuelve tal
 // cual, sin tocar nada.
-export function parsearEscaneo(texto) {
-  const resultado = { codigoBarras: texto, lote: null, fechaVencimiento: null, esGS1: false };
+// -------------------------------------------------------------------------
+// Lector configurado con teclado en inglés (US) en una PC con teclado en
+// español latinoamericano: el lector "aprieta" las teclas pensando en el
+// teclado inglés, y algunos símbolos salen cambiados. Ej.: el QR
+// "https://www.elea.com/qr/dacten-d" llega como
+// "httpsÑ--www.elea.com-qr-dacten'd". (Por lo mismo, los códigos GS1
+// "(01)...(10)..." llegan como ")01=...)10=...", ver el caso 2 de abajo.)
+// Esta tabla deshace el cambio: carácter que aparece -> el que era.
+const TECLADO_US_EN_LATAM = {
+  'Ñ': ':', 'ñ': ';', '-': '/', '_': '?', "'": '-', '¿': '=', '?': '_',
+  '/': '&', '(': '*', ')': '(', '=': ')', '&': '^', '"': '@', '¡': '+',
+  '+': ']', '}': '\\', '{': "'", '[': '"',
+};
+
+function corregirTecladoUS(texto) {
+  return [...texto].map((c) => TECLADO_US_EN_LATAM[c] ?? c).join('');
+}
+
+// Muchas cajas traen, además del código de barras y del código cuadrado
+// de trazabilidad, un QR del laboratorio que es sólo un LINK a una página
+// web (ej. https://www.elea.com/qr/dacten-d). Ese link NO identifica el
+// producto de forma confiable, así que no sirve como código de barras.
+// Excepción: los QR "GS1 Digital Link" (https://.../01/<GTIN>/10/<lote>...)
+// sí traen el código del producto adentro, y de esos lo sacamos.
+// Devuelve null si el texto no es un link.
+function analizarURL(texto) {
+  let url = texto.trim();
+  if (/^https?Ñ/i.test(url)) url = corregirTecladoUS(url);
+  if (!/^https?:\/\//i.test(url)) return null;
+
+  const gtin = url.match(/\/0[12]\/(\d{13,14})(?=[/?#]|$)/);
+  if (!gtin) return { esURL: true, url };
+
+  const lote = url.match(/\/10\/([^/?#]+)/);
+  const vencimiento = url.match(/\/17\/(\d{6})(?=[/?#]|$)/);
+  return {
+    esURL: false,
+    ais: {
+      '01': gtin[1],
+      ...(lote ? { '10': decodeURIComponent(lote[1]) } : {}),
+      ...(vencimiento ? { '17': vencimiento[1] } : {}),
+    },
+  };
+}
+
+// -------------------------------------------------------------------------
+// GS1 "crudo" con separador GS (carácter invisible n.º 29)
+// -------------------------------------------------------------------------
+// Así llega el código cuadrado cuando se lee con la CÁMARA del celular (y
+// con algunos lectores): sin paréntesis, con los campos pegados y un
+// carácter separador invisible después de cada campo de largo variable
+// (lote, serie). Ej.: "0107798369790702" + "1005271" + GS + "17280731" ...
+// Algunos lectores agregan además un prefijo de 3 caracteres que indica
+// el tipo de código ("]d2" DataMatrix, "]C1" Code128, "]Q3" QR).
+const GS = String.fromCharCode(29);
+const AI_LARGO_FIJO = { '00': 18, '01': 14, '02': 14, '11': 6, '12': 6, '13': 6, '15': 6, '16': 6, '17': 6, '20': 2 };
+
+function sacarPrefijoSimbologia(texto) {
+  return texto.replace(/^\][A-Za-z]\d/, '');
+}
+
+function parsearGS1ConSeparador(texto) {
+  let s = sacarPrefijoSimbologia(texto);
+  if (s.startsWith(GS)) s = s.slice(1);
   const ais = {};
+  let i = 0;
+  while (i < s.length) {
+    const ai = s.slice(i, i + 2);
+    if (!/^\d\d$/.test(ai)) return null;
+    i += 2;
+    if (AI_LARGO_FIJO[ai]) {
+      ais[ai] = s.slice(i, i + AI_LARGO_FIJO[ai]);
+      i += AI_LARGO_FIJO[ai];
+      if (s[i] === GS) i += 1;
+    } else {
+      let fin = s.indexOf(GS, i);
+      if (fin === -1) fin = s.length;
+      ais[ai] = s.slice(i, fin);
+      i = fin + 1;
+    }
+  }
+  const gtin = ais['01'] || ais['02'];
+  return gtin && /^\d{14}$/.test(gtin) ? ais : null;
+}
+
+export function parsearEscaneo(texto) {
+  const resultado = { codigoBarras: texto, lote: null, fechaVencimiento: null, esGS1: false, esURL: false };
+  let ais = {};
+
+  // Caso 0: es un link (QR del laboratorio).
+  // Caso 0b: GS1 crudo con separador GS (lectura con la cámara).
+  if (texto.includes(GS) || /^\][A-Za-z]\d/.test(texto)) {
+    const conSeparador = parsearGS1ConSeparador(texto);
+    if (conSeparador) return completarResultadoGS1(resultado, conSeparador);
+    texto = sacarPrefijoSimbologia(texto).split(GS).join('');
+    resultado.codigoBarras = texto;
+  }
+
+  const comoURL = analizarURL(texto);
+  if (comoURL && comoURL.esURL) {
+    resultado.esURL = true;
+    resultado.url = comoURL.url;
+    return resultado;
+  }
 
   // Caso 1: formato estándar GS1, con paréntesis reales delimitando cada
   // AI: "(02)07792366314459(17)290607(10)20240607". Es el más confiable,
@@ -99,7 +218,11 @@ export function parsearEscaneo(texto) {
   // Caso 2: variante con separadores tipo ")NN=valor)NN=valor..."
   const paresConSeparador = [...texto.matchAll(/\)?(\d{2})=([^)]*)/g)];
 
-  if (paresConParentesis.length > 0) {
+  if (comoURL) {
+    // QR "GS1 Digital Link": ya trae los datos separados (ver analizarURL).
+    ais = comoURL.ais;
+    resultado.esGS1 = true;
+  } else if (paresConParentesis.length > 0) {
     paresConParentesis.forEach(([, ai, valor]) => { ais[ai] = valor.trim(); });
     resultado.esGS1 = true;
   } else if (paresConSeparador.length > 0) {
@@ -125,6 +248,13 @@ export function parsearEscaneo(texto) {
     return resultado; // No es un código GS1 reconocible: se devuelve tal cual.
   }
 
+  return completarResultadoGS1(resultado, ais);
+}
+
+// Pasa los datos GS1 ya separados (código de producto, lote, vencimiento)
+// al resultado que usa el resto de la app.
+function completarResultadoGS1(resultado, ais) {
+  resultado.esGS1 = true;
   // El GTIN de un código GS1 mide 14 dígitos, pero el mismo producto,
   // escaneado desde su código de barras simple, tiene 13 (EAN-13). Le
   // sacamos el dígito indicador inicial para que ambos escaneos del
@@ -176,10 +306,20 @@ function elegirLoteParaRetiro(lotes) {
   })[0];
 }
 
+export const MENSAJE_QR_LINK =
+  'Ese es el código QR del laboratorio (un link a su página web) y no sirve para identificar el medicamento. ' +
+  'Escaneá el código de barras (las rayitas) o el código cuadrado chiquito de trazabilidad.';
+
 function buscarPorCodigoBarras(textoEscaneado) {
   const mensajeEl = document.getElementById('scanner-mensaje');
   const analisis = parsearEscaneo(textoEscaneado);
   const codigo = analisis.codigoBarras;
+
+  if (analisis.esURL) {
+    mensajeEl.textContent = MENSAJE_QR_LINK;
+    mensajeEl.className = 'scanner-mensaje error';
+    return;
+  }
 
   // Como un mismo código de barras identifica un PRODUCTO, puede haber
   // varios lotes en stock con ese mismo código (distinto lote/vencimiento
@@ -214,15 +354,15 @@ function buscarPorCodigoBarras(textoEscaneado) {
     // permite cambiarlo con un clic si en realidad llegó mercadería nueva.
     const loteElegido = elegirLoteParaRetiro(coincidencias);
     mensajeEl.textContent = coincidencias.length === 1
-      ? `✔ Encontrado: ${nombreProducto} (1 lote en stock). Se abrió el movimiento de stock.`
-      : `✔ Encontrado: ${nombreProducto} (${coincidencias.length} lotes en stock). Se abrió el movimiento sobre el lote "${loteElegido.lote || 's/n'}" (el de vencimiento más próximo).`;
+      ? `Encontrado: ${nombreProducto} (1 lote en stock). Se abrió el movimiento de stock.`
+      : `Encontrado: ${nombreProducto} (${coincidencias.length} lotes en stock). Se abrió el movimiento sobre el lote "${loteElegido.lote || 's/n'}" (el de vencimiento más próximo).`;
     mensajeEl.className = 'scanner-mensaje ok';
 
     abrirModalMovimiento(loteElegido, 'retiro');
   } else {
     mensajeEl.textContent = analisis.esGS1
-      ? `✘ No hay stock con el código "${codigo}". Se abrió el formulario con los datos leídos del código 2D.`
-      : `✘ No hay stock con el código "${codigo}". Se abrió el formulario para cargar un lote nuevo.`;
+      ? `No hay stock con el código "${codigo}". Se abrió el formulario con los datos leídos del código 2D.`
+      : `No hay stock con el código "${codigo}". Se abrió el formulario para cargar un lote nuevo.`;
     mensajeEl.className = 'scanner-mensaje error';
     abrirModalMedicamento(null, codigo, analisis);
   }

@@ -8,6 +8,7 @@
 // desplegar para ver el detalle de cada lote.
 import { escapeHtml, formatearFecha } from './utils.js';
 import { calcularAlertas } from './inventario.js';
+import { icono } from './iconos.js';
 
 // Qué grupos están desplegados ahora mismo (se pierde al recargar la
 // página, que es lo esperable para un estado puramente visual).
@@ -54,7 +55,7 @@ function renderizarListaVencimiento(alertasVencimiento) {
   cont.innerHTML = '';
 
   if (alertasVencimiento.length === 0) {
-    cont.innerHTML = '<p class="subtexto">No hay medicamentos vencidos ni próximos a vencer. 👍</p>';
+    cont.innerHTML = '<p class="subtexto">No hay medicamentos vencidos ni próximos a vencer.</p>';
     return;
   }
 
@@ -81,7 +82,7 @@ function crearItemVencimiento({ m, info }, esLote) {
   div.innerHTML = esLote
     ? `
       <div class="info">
-        <strong>↳ Lote ${escapeHtml(m.lote || 's/n')}</strong>
+        <strong>Lote ${escapeHtml(m.lote || 's/n')}</strong>
         <span>Vence ${formatearFecha(m.fecha_vencimiento)}</span>
       </div>
       <div class="valor">${info.texto}</div>
@@ -99,10 +100,10 @@ function crearItemVencimiento({ m, info }, esLote) {
 function crearGrupoVencimiento(grupo, clave, expandido) {
   const masUrgente = grupo[0];
   const div = document.createElement('div');
-  div.className = 'item-alerta item-alerta-grupo' + (masUrgente.info.critico ? ' critico' : '');
+  div.className = 'item-alerta item-alerta-grupo' + (masUrgente.info.critico ? ' critico' : '') + (expandido ? ' expandido' : '');
   div.innerHTML = `
     <div class="info">
-      <strong>${expandido ? '▾' : '▸'} ${escapeHtml(masUrgente.m.nombre_generico)}</strong>
+      <strong>${icono('chevron', 14)} ${escapeHtml(masUrgente.m.nombre_generico)}</strong>
       <span>${grupo.length} lotes · el más próximo vence ${formatearFecha(masUrgente.m.fecha_vencimiento)}</span>
     </div>
     <div class="valor">${masUrgente.info.texto}</div>
@@ -118,7 +119,7 @@ function renderizarListaStock(alertasStock) {
   cont.innerHTML = '';
 
   if (alertasStock.length === 0) {
-    cont.innerHTML = '<p class="subtexto">Todo el stock está por encima del mínimo. 👍</p>';
+    cont.innerHTML = '<p class="subtexto">Todo el stock está por encima del mínimo.</p>';
     return;
   }
 
@@ -141,7 +142,7 @@ function crearItemStock(m, esLote) {
   div.className = 'item-alerta' + (Number(m.stock_actual) === 0 ? ' critico' : '') + (esLote ? ' item-alerta-hija' : '');
   div.innerHTML = `
     <div class="info">
-      <strong>${esLote ? '↳ Lote ' + escapeHtml(m.lote || 's/n') : escapeHtml(m.nombre_generico)}</strong>
+      <strong>${esLote ? 'Lote ' + escapeHtml(m.lote || 's/n') : escapeHtml(m.nombre_generico)}</strong>
       <span>Mínimo: ${m.stock_minimo} ${escapeHtml(m.unidad || '')}</span>
     </div>
     <div class="valor"><span class="stock-cantidad">${m.stock_actual}</span> <span class="stock-unidad">${escapeHtml(m.unidad || '')}</span></div>
@@ -152,10 +153,10 @@ function crearItemStock(m, esLote) {
 function crearGrupoStock(grupo, clave, expandido) {
   const masCritico = grupo[0];
   const div = document.createElement('div');
-  div.className = 'item-alerta item-alerta-grupo' + (Number(masCritico.stock_actual) === 0 ? ' critico' : '');
+  div.className = 'item-alerta item-alerta-grupo' + (Number(masCritico.stock_actual) === 0 ? ' critico' : '') + (expandido ? ' expandido' : '');
   div.innerHTML = `
     <div class="info">
-      <strong>${expandido ? '▾' : '▸'} ${escapeHtml(masCritico.nombre_generico)}</strong>
+      <strong>${icono('chevron', 14)} ${escapeHtml(masCritico.nombre_generico)}</strong>
       <span>${grupo.length} lotes por debajo del mínimo</span>
     </div>
     <div class="valor"><span class="stock-cantidad">${masCritico.stock_actual}</span> <span class="stock-unidad">${escapeHtml(masCritico.unidad || '')}</span></div>

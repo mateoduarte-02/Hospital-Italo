@@ -187,6 +187,22 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9......";
 > probarlo sin tener el lector físico: hacé clic en ese campo, escribí un
 > código a mano y presioná Enter.
 
+5. **Desde el celular**: la app se adapta sola a la pantalla. El
+   inventario se ve en tarjetas con botones grandes (Retirar / Ingresar),
+   el menú queda abajo, y "Agregar medicamento" es el botón redondo
+   flotante. Al lado del campo de escaneo aparece el botón **Cámara**,
+   que lee el código de barras o el código cuadrado de la caja con la
+   cámara del teléfono (el navegador pide permiso la primera vez). La
+   cámara sólo funciona con la página publicada por `https://` (GitHub
+   Pages) o en `http://localhost`. Si el celular no trae un lector de
+   códigos propio, la app descarga la librería ZXing desde jsDelivr la
+   primera vez que se usa la cámara (ver `js/camara.js`).
+6. **Modo claro / oscuro**: botón de luna/sol al lado de "Cerrar sesión"
+   (y arriba a la derecha en el login). Cada computadora recuerda su
+   elección; si nadie eligió, sigue el modo del sistema operativo.
+7. **Tipografía**: la letra (IBM Plex Sans, licencia libre OFL) está
+   dentro de la carpeta `fonts/`, así la app no depende de Google Fonts.
+
 ---
 
 ## 7. Preguntas frecuentes / notas para la defensa del proyecto

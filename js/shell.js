@@ -8,12 +8,13 @@
 import { supabaseClient } from './supabase-client.js';
 import { estado } from './estado.js';
 import { esErrorDeConexion, mostrarPantallaSinConexion } from './conexion.js';
+import { icono, marca, botonTema } from './iconos.js';
 
 const NAV = [
-  { pagina: 'inventario', archivo: 'inventario.html', icono: '📦', texto: 'Inventario' },
-  { pagina: 'historial', archivo: 'historial.html', icono: '🕓', texto: 'Historial' },
-  { pagina: 'alertas', archivo: 'alertas.html', icono: '⚠️', texto: 'Alertas Stock', badgeId: 'badge-alertas' },
-  { pagina: 'usuarios', archivo: 'usuarios.html', icono: '👥', texto: 'Usuarios', badgeId: 'badge-usuarios-pendientes', soloAdmin: true },
+  { pagina: 'inventario', archivo: 'inventario.html', icono: 'inventario', texto: 'Inventario' },
+  { pagina: 'historial', archivo: 'historial.html', icono: 'historial', texto: 'Historial' },
+  { pagina: 'alertas', archivo: 'alertas.html', icono: 'alertas', texto: 'Alertas', badgeId: 'badge-alertas' },
+  { pagina: 'usuarios', archivo: 'usuarios.html', icono: 'usuarios', texto: 'Usuarios', badgeId: 'badge-usuarios-pendientes', soloAdmin: true },
 ];
 
 // Se llama al principio de cada página de la app. Verifica que haya
@@ -53,24 +54,28 @@ export async function iniciarShell() {
 
   document.getElementById('shell-sidebar').innerHTML = `
     <div class="sidebar-marca">
-      <span class="marca-icono" aria-hidden="true">💊</span>
-      <span class="marca-texto">FarmaHospital</span>
+      <span class="marca-icono">${marca(30)}</span>
+      <span class="marca-texto">
+        <strong>FarmaHospital</strong>
+        <span>Hospital Dr. Luis Mario Marini</span>
+      </span>
     </div>
     <nav class="sidebar-nav">
       ${NAV.filter((item) => !item.soloAdmin || perfil.rol === 'admin').map((item) => `
-        <a class="nav-item ${item.pagina === paginaActual ? 'activa' : ''}" href="${item.archivo}">
-          <span class="nav-icono">${item.icono}</span> ${item.texto}
+        <a class="nav-item ${item.pagina === paginaActual ? 'activa' : ''}" href="${item.archivo}"${item.pagina === paginaActual ? ' aria-current="page"' : ''}>
+          <span class="nav-icono">${icono(item.icono, 19)}</span> ${item.texto}
           ${item.badgeId ? `<span id="${item.badgeId}" class="badge oculto">0</span>` : ''}
         </a>
       `).join('')}
     </nav>
     <div class="sidebar-usuario">
-      <span class="usuario-avatar" aria-hidden="true">👤</span>
+      <span class="usuario-avatar" aria-hidden="true">${escapeHtmlLocal(iniciales(perfil.nombre))}</span>
       <div class="usuario-texto">
         <strong>${escapeHtmlLocal(perfil.nombre)}</strong>
-        <span>Sesión activa</span>
+        <span>${perfil.rol === 'admin' ? 'Administrador' : 'Usuario'}</span>
       </div>
-      <button id="btn-logout" class="btn-salir" title="Cerrar sesión">⏻</button>
+      ${botonTema()}
+      <button id="btn-logout" class="btn-salir" title="Cerrar sesión" aria-label="Cerrar sesión">${icono('salir', 16)}</button>
     </div>
   `;
 
@@ -83,9 +88,12 @@ export async function iniciarShell() {
   document.getElementById('shell-header').innerHTML = `
     <h1>${escapeHtmlLocal(tituloVista)}</h1>
     ${mostrarEscaner ? `
-      <div class="scanner-pill">
-        <span aria-hidden="true">🔎</span>
-        <input type="text" id="input-scanner" placeholder="Escanear código de barras / QR..." autocomplete="off" />
+      <div class="scanner-fila">
+        <div class="scanner-pill">
+          ${icono('escanear', 20)}
+          <input type="text" id="input-scanner" placeholder="Escaneá un código" autocomplete="off" aria-label="Código de barras" />
+        </div>
+        <button type="button" id="btn-camara" class="btn btn-primario btn-camara" aria-label="Escanear con la cámara">${icono('camara', 20)}<span>Cámara</span></button>
       </div>
     ` : ''}
   `;
@@ -100,6 +108,12 @@ export async function iniciarShell() {
   wirearEscanerGlobal(paginaActual);
 
   return perfil;
+}
+
+// "Nayeli Gómez" -> "NG"; "mateoduarte02" -> "MA".
+function iniciales(nombre) {
+  const partes = String(nombre || '?').trim().split(/\s+/);
+  return partes.length > 1 ? partes[0][0] + partes[1][0] : partes[0].slice(0, 2);
 }
 
 function escapeHtmlLocal(texto) {

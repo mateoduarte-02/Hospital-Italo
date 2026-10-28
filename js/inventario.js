@@ -6,6 +6,7 @@ import { escapeHtml, formatearFecha } from './utils.js';
 import { abrirModalMedicamento } from './medicamentos.js';
 import { abrirModalMovimiento } from './movimientos.js';
 import { abrirModalHistorial } from './historial.js';
+import { icono } from './iconos.js';
 
 // Un lote con stock 0 se marca "dado de baja" automáticamente (ver
 // medicamentos.js / movimientos.js) y por defecto no sirve de nada verlo
@@ -73,7 +74,16 @@ export function renderizarTablaMedicamentos() {
     cuerpo.appendChild(crearFilaProducto(codigo, lotes, expandido));
 
     if (expandido) {
-      lotesQueCoinciden.forEach((m) => cuerpo.appendChild(crearFilaLote(m, true)));
+      // Dentro de la bandeja, los lotes van ordenados por vencimiento (el
+      // que vence antes, primero) y se marca cuál se usa primero.
+      const loteFefo = elegirLoteQueSeUsaPrimero(lotes);
+      const ordenados = [...lotesQueCoinciden].sort(compararPorVencimiento);
+      ordenados.forEach((m, i) => {
+        cuerpo.appendChild(crearFilaLote(m, true, {
+          esUltimo: i === ordenados.length - 1,
+          seUsaPrimero: loteFefo && m.id === loteFefo.id,
+        }));
+      });
     }
   });
 
@@ -94,6 +104,25 @@ if (buscadorInventario) {
   buscadorInventario.addEventListener('input', renderizarTablaMedicamentos);
 }
 
+// Globo de ayuda de "Mostrar dados de baja": con el mouse aparece solo
+// (CSS); en el celular se abre y cierra tocando la (i), y se cierra al
+// tocar cualquier otro lado.
+const botonAyuda = document.querySelector('.btn-ayuda');
+if (botonAyuda) {
+  const contenedorAyuda = botonAyuda.closest('.check-con-ayuda');
+  botonAyuda.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const abierto = contenedorAyuda.classList.toggle('abierto');
+    botonAyuda.setAttribute('aria-expanded', String(abierto));
+  });
+  document.addEventListener('click', (e) => {
+    if (!contenedorAyuda.contains(e.target)) {
+      contenedorAyuda.classList.remove('abierto');
+      botonAyuda.setAttribute('aria-expanded', 'false');
+    }
+  });
+}
+
 // Fila "producto": encabezado de un grupo de 2 o más lotes que
 // comparten el mismo código de barras. Muestra el nombre una sola vez,
 // el stock TOTAL sumado, y el vencimiento más urgente entre todos los
@@ -110,32 +139,42 @@ function crearFilaProducto(codigo, lotes, expandido) {
     .sort((a, b) => a.diffDias - b.diffDias);
   const infoMasUrgente = infoVencimientos[0] || null;
 
+  // Vencimiento más próximo entre los lotes activos, aunque no sea urgente:
+  // es el dato que más sirve ver sin desplegar el producto.
+  const proximoVencimiento = activos
+    .map((m) => m.fecha_vencimiento)
+    .filter(Boolean)
+    .sort()[0] || null;
+
   const hayStockBajo = activos.some((m) => Number(m.stock_actual) <= Number(m.stock_minimo));
   const hayVencido = infoVencimientos.some((info) => info.critico);
 
   const tr = document.createElement('tr');
-  tr.className = 'fila-producto';
+  tr.className = 'fila-producto' + (expandido ? ' expandida' : '');
   tr.dataset.codigo = codigo;
 
   tr.innerHTML = `
-    <td class="nombre-medicamento">
-      <button class="btn-expandir" type="button" aria-label="Desplegar lotes">${expandido ? '▾' : '▸'}</button>
-      <strong>${escapeHtml(primero.nombre_generico)}</strong>
-      <span>${escapeHtml(primero.nombre_comercial || '')} · ${lotes.length} lotes</span>
+    <td class="nombre-medicamento c-nombre">
+      <div class="celda-producto">
+      <button class="btn-expandir" type="button" aria-expanded="${expandido}" aria-label="${expandido ? 'Ocultar' : 'Ver'} los lotes de ${escapeHtml(primero.nombre_generico)}">${icono('chevron', 14)}</button>
+      <div>
+        <strong>${escapeHtml(primero.nombre_generico)}</strong>
+        <span>${escapeHtml(primero.nombre_comercial || '')}</span>
+      </div>
+      </div>
     </td>
-    <td>—</td>
-    <td>${escapeHtml(primero.categoria || '-')}</td>
-    <td>
-      <span class="chip ${hayStockBajo ? 'chip-stock-bajo' : 'chip-stock-ok'}">
-        <span class="stock-cantidad">${stockTotal}</span> <span class="stock-unidad">${escapeHtml(primero.unidad || '')}</span>
-      </span>
+    <td class="c-lote"><span class="contador-lotes">${lotes.length} lotes</span></td>
+    <td class="c-cat">${escapeHtml(primero.categoria || '-')}</td>
+    <td class="c-stock">${celdaStock(stockTotal, primero.unidad, hayStockBajo)}</td>
+    <td class="c-venc">
+      ${proximoVencimiento ? `<span class="fecha-venc" title="Vencimiento más próximo entre sus lotes"><span class="texto-tenue">Próx.<span class="solo-movil"> venc.</span></span> ${formatearFecha(proximoVencimiento)}</span>` : '<span class="texto-tenue">—</span>'}
+      ${infoMasUrgente ? `<span class="chip chip-venc ${infoMasUrgente.clase}">${infoMasUrgente.texto}</span>` : ''}
     </td>
-    <td>${infoMasUrgente ? `<span class="chip ${infoMasUrgente.clase}">${infoMasUrgente.texto}</span>` : '—'}</td>
-    <td>${chipEstado(hayVencido ? 'vencido' : 'activo')}</td>
-    <td><span class="codigo-truncado" title="${escapeHtml(codigo)}">${escapeHtml(codigo)}</span></td>
-    <td>
+    <td class="c-estado">${chipEstado(hayVencido ? 'vencido' : 'activo')}</td>
+    <td class="c-codigo">${celdaCodigo(codigo)}</td>
+    <td class="c-acciones">
       <div class="acciones-fila">
-        <button class="btn btn-secundario btn-chico" data-accion="agregar-lote">+ Lote</button>
+        <button class="btn btn-secundario btn-chico" data-accion="agregar-lote" aria-label="Agregar un lote de ${escapeHtml(primero.nombre_generico)}">${icono('mas', 15)} Lote</button>
       </div>
     </td>
   `;
@@ -147,6 +186,37 @@ function crearFilaProducto(codigo, lotes, expandido) {
   });
 
   return tr;
+}
+
+// Mismo criterio que usa el escáner para elegir de qué lote retirar
+// (FEFO: primero vence, primero sale), para marcarlo en la bandeja.
+function elegirLoteQueSeUsaPrimero(lotes) {
+  const disponibles = lotes.filter((m) => m.estado !== 'dado_de_baja' && Number(m.stock_actual) > 0);
+  if (disponibles.length < 2) return null; // con un solo lote no hace falta marcarlo
+  return [...disponibles].sort(compararPorVencimiento)[0];
+}
+
+function compararPorVencimiento(a, b) {
+  if (!a.fecha_vencimiento && !b.fecha_vencimiento) return 0;
+  if (!a.fecha_vencimiento) return 1;
+  if (!b.fecha_vencimiento) return -1;
+  return a.fecha_vencimiento.localeCompare(b.fecha_vencimiento);
+}
+
+function celdaStock(cantidad, unidad, esBajo) {
+  return `<span class="chip ${esBajo ? 'chip-stock-bajo' : 'chip-stock-ok'}"${esBajo ? ' title="En o por debajo del stock mínimo"' : ''}>
+    <span class="stock-cantidad">${cantidad}</span> <span class="stock-unidad">${escapeHtml(unidad || '')}</span>
+  </span>`;
+}
+
+// Un código guardado desde el QR del laboratorio (un link) no sirve para
+// encontrar el producto al escanear: se marca para que lo corrijan.
+function celdaCodigo(codigo) {
+  if (!codigo) return '<span class="texto-tenue">—</span>';
+  if (/^https?(:|Ñ)/i.test(codigo)) {
+    return `<span class="codigo-invalido" title="Se guardó el QR del laboratorio (${escapeHtml(codigo)}). Editá el lote y escaneá el código de barras de la caja.">${icono('alertas', 14)} Volver a escanear</span>`;
+  }
+  return `<span class="codigo-truncado" title="${escapeHtml(codigo)}">${escapeHtml(codigo)}</span>`;
 }
 
 // Despliega/repliega el listado de lotes de un producto agrupado.
@@ -163,39 +233,38 @@ function toggleGrupo(codigo) {
 // "esHijo" es true, se está mostrando adentro de un grupo desplegado, y
 // no repite el nombre/categoría/código (ya están en el encabezado del
 // grupo, justo arriba).
-function crearFilaLote(m, esHijo) {
+function crearFilaLote(m, esHijo, { esUltimo = false, seUsaPrimero = false } = {}) {
   const tr = document.createElement('tr');
   tr.dataset.id = m.id;
-  if (esHijo) tr.className = 'fila-lote-hija';
+  if (esHijo) tr.className = 'fila-lote-hija' + (esUltimo ? ' ultimo-lote' : '');
 
   const infoVenc = calcularEstadoVencimiento(m);
   const stockBajo = Number(m.stock_actual) <= Number(m.stock_minimo);
+  // Si la fecha ya pasó, se muestra "Vencido" aunque en la base siga
+  // figurando como activo (el estado guardado no se toca).
+  const estadoVisible = m.estado === 'activo' && infoVenc && infoVenc.critico ? 'vencido' : m.estado;
 
   tr.innerHTML = `
-    <td class="nombre-medicamento">
+    <td class="nombre-medicamento c-nombre">
       ${esHijo
-        ? `<span class="lote-indent">↳ lote</span>`
+        ? `<span class="lote-indent">${seUsaPrimero ? '<span class="etiqueta-fefo" title="Es el que vence antes: el escáner retira de este lote">Se usa primero</span>' : ''}</span>`
         : `<strong>${escapeHtml(m.nombre_generico)}</strong><span>${escapeHtml(m.nombre_comercial || '')}</span>`}
     </td>
-    <td>${escapeHtml(m.lote || '-')}</td>
-    <td>${esHijo ? '' : escapeHtml(m.categoria || '-')}</td>
-    <td>
-      <span class="chip ${stockBajo ? 'chip-stock-bajo' : 'chip-stock-ok'}">
-        <span class="stock-cantidad">${m.stock_actual}</span> <span class="stock-unidad">${escapeHtml(m.unidad || '')}</span>
-      </span>
+    <td class="c-lote"><span class="solo-movil texto-tenue">Lote </span><span class="numero-lote">${escapeHtml(m.lote || '-')}</span></td>
+    <td class="c-cat">${esHijo ? '' : escapeHtml(m.categoria || '-')}</td>
+    <td class="c-stock">${celdaStock(m.stock_actual, m.unidad, stockBajo)}</td>
+    <td class="c-venc">
+      <span class="fecha-venc"><span class="solo-movil texto-tenue">Vence </span>${m.fecha_vencimiento ? formatearFecha(m.fecha_vencimiento) : '<span class="texto-tenue">—</span>'}</span>
+      ${infoVenc ? `<span class="chip chip-venc ${infoVenc.clase}">${infoVenc.texto}</span>` : ''}
     </td>
-    <td>
-      ${m.fecha_vencimiento ? formatearFecha(m.fecha_vencimiento) : '-'}
-      ${infoVenc ? `<br><span class="chip ${infoVenc.clase}">${infoVenc.texto}</span>` : ''}
-    </td>
-    <td>${chipEstado(m.estado)}</td>
-    <td>${esHijo ? '' : `<span class="codigo-truncado" title="${escapeHtml(m.codigo_barras || '')}">${escapeHtml(m.codigo_barras || '-')}</span>`}</td>
-    <td>
+    <td class="c-estado">${chipEstado(estadoVisible)}</td>
+    <td class="c-codigo">${esHijo ? '' : celdaCodigo(m.codigo_barras)}</td>
+    <td class="c-acciones">
       <div class="acciones-fila">
-        <button class="btn-circular retiro" data-accion="retiro" title="Retirar stock">−</button>
-        <button class="btn-circular ingreso" data-accion="ingreso" title="Ingresar stock">+</button>
-        <button class="btn-circular neutro" data-accion="historial" title="Ver historial">🕓</button>
-        <button class="btn-circular neutro" data-accion="editar" title="Editar medicamento">✎</button>
+        <button class="btn-circular retiro" data-accion="retiro" title="Retirar stock" aria-label="Retirar stock">${icono('menos', 16)}<span class="solo-movil">Retirar</span></button>
+        <button class="btn-circular ingreso" data-accion="ingreso" title="Ingresar stock" aria-label="Ingresar stock">${icono('mas', 16)}<span class="solo-movil">Ingresar</span></button>
+        <button class="btn-circular" data-accion="historial" title="Ver historial" aria-label="Ver historial">${icono('reloj', 16)}</button>
+        <button class="btn-circular" data-accion="editar" title="Editar" aria-label="Editar">${icono('editar', 15)}</button>
       </div>
     </td>
   `;
@@ -225,10 +294,12 @@ export function calcularEstadoVencimiento(m) {
   const diffDias = Math.round((vencimiento - hoy) / (1000 * 60 * 60 * 24));
 
   if (diffDias < 0) {
-    return { clase: 'chip-vencido', texto: `Vencido hace ${Math.abs(diffDias)} días`, diffDias, critico: true };
+    const dias = Math.abs(diffDias);
+    return { clase: 'chip-vencido', texto: dias === 1 ? 'Venció ayer' : `Vencido hace ${dias} días`, diffDias, critico: true };
   }
   if (diffDias <= DIAS_ALERTA_VENCIMIENTO) {
-    return { clase: 'chip-vence-pronto', texto: `Vence en ${diffDias} días`, diffDias, critico: false };
+    const texto = diffDias === 0 ? 'Vence hoy' : diffDias === 1 ? 'Vence mañana' : `Vence en ${diffDias} días`;
+    return { clase: 'chip-vence-pronto', texto, diffDias, critico: false };
   }
   return null;
 }
@@ -259,4 +330,8 @@ export function renderizarStatsInventario() {
   document.getElementById('resumen-total').textContent = activos.length;
   document.getElementById('resumen-stock-bajo').textContent = alertasStock.length;
   document.getElementById('resumen-vencimiento').textContent = alertasVencimiento.length;
+
+  // Los números de alerta sólo toman color cuando hay algo que mirar.
+  document.getElementById('resumen-stock-bajo').closest('.tarjeta-resumen').classList.toggle('hay-alerta', alertasStock.length > 0);
+  document.getElementById('resumen-vencimiento').closest('.tarjeta-resumen').classList.toggle('hay-alerta', alertasVencimiento.length > 0);
 }

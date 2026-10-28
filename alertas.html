@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Alertas - Hospital Dr. Luis Mario Marini</title>
 
+  <!-- Aplica el modo claro/oscuro antes de dibujar la página (sin "flash") -->
+  <script src="js/tema-inicial.js"></script>
   <link rel="stylesheet" href="style.css" />
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -22,13 +24,13 @@
         <section id="vista-alertas" class="vista activa">
           <div class="grilla-alertas">
             <div class="panel-alerta" id="alertas-vencimiento">
-              <h2>⏳ Próximos a vencer / vencidos</h2>
+              <h2><svg class="icono" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="19" height="19" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg> Vencidos o por vencer</h2>
               <p class="subtexto">Medicamentos que vencen dentro de los próximos 15 días, o que ya vencieron.</p>
               <div id="lista-alertas-vencimiento" class="lista-alertas"></div>
             </div>
 
             <div class="panel-alerta" id="alertas-stock">
-              <h2>📉 Stock por debajo del mínimo</h2>
+              <h2><svg class="icono" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m22 17-8.5-8.5-5 5L2 7"/><path d="M16 17h6v-6"/></svg> Stock por debajo del mínimo</h2>
               <p class="subtexto">Medicamentos cuyo stock actual está en o por debajo del mínimo definido.</p>
               <div id="lista-alertas-stock" class="lista-alertas"></div>
             </div>
