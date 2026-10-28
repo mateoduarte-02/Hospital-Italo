@@ -1,70 +1,167 @@
 /* =========================================================================
    ESTILOS - Sistema de Gestión de Stock de Medicamentos
+   Hospital Dr. Luis Mario Marini (Italó, Córdoba)
    =========================================================================
-   Estructura general: una barra lateral fija (navegación + usuario) y un
-   panel principal a la derecha con el contenido de cada vista. Paleta
-   pensada para un entorno clínico: sidebar en un verde-azulado oscuro
-   ("teal"), superficies blancas, y colores semánticos (verde/ámbar/rojo)
-   reservados para el estado de los medicamentos y las alertas.
+   Estructura: barra lateral fija (navegación + usuario) y un panel
+   principal a la derecha con el contenido de cada vista.
+
+   Colores: todo sale de las variables de abajo ("tokens"). El modo oscuro
+   no repite reglas: sólo redefine esas variables cuando la página tiene
+   data-tema="oscuro" (lo pone js/tema-inicial.js). Por eso, si se agrega
+   un estilo nuevo, conviene usar siempre var(--...) y nunca un color fijo.
+
+   Paleta: verde de farmacia como color de marca, sobre grises fríos; los
+   colores de estado (verde / ámbar / rojo) se reservan para lo que
+   necesita atención: stock bajo, vencimientos, retiros.
    ========================================================================= */
 
+/* Tipografía: IBM Plex Sans, incluida en la carpeta fonts/ (licencia OFL,
+   ver fonts/OFL.txt). Va dentro del proyecto para que la app no dependa
+   de Google Fonts ni de la velocidad de internet del hospital. */
+@font-face { font-family: "Plex"; src: url("fonts/ibm-plex-sans-latin-400-normal.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Plex"; src: url("fonts/ibm-plex-sans-latin-500-normal.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: "Plex"; src: url("fonts/ibm-plex-sans-latin-600-normal.woff2") format("woff2"); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: "Plex"; src: url("fonts/ibm-plex-sans-latin-700-normal.woff2") format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
+
+/* ---------------------------------------------------------------------
+   TOKENS - MODO CLARO (por defecto)
+--------------------------------------------------------------------- */
 :root {
-  /* Color de marca */
-  --color-primario: #0f6e68;
-  --color-primario-oscuro: #0b524d;
-  --color-primario-claro: #e3f2f0;
+  color-scheme: light;
 
-  /* Sidebar (más oscura que el resto de la marca, para dar jerarquía) */
-  --sidebar-bg: #0a4a44;
-  --sidebar-bg-activo: #12665d;
-  --sidebar-texto: #d8ece9;
+  /* Marca */
+  --color-primario: #0e6655;
+  --color-primario-oscuro: #0a4c40;
+  --color-primario-claro: #e2f0ec;
+  --color-primario-texto: #ffffff;   /* texto sobre botón primario */
+  --marca-fondo: #0e6655;
+  --marca-cruz: #ffffff;
+
+  /* Barra lateral */
+  --sidebar-bg: #10302b;
+  --sidebar-bg-activo: rgba(255, 255, 255, 0.09);
+  --sidebar-borde: rgba(255, 255, 255, 0.08);
+  --sidebar-texto: #b9cdc8;
   --sidebar-texto-activo: #ffffff;
+  --sidebar-acento: #5fd0b5;
 
-  /* Fondo y superficies */
-  --color-fondo: #f4f6f6;
+  /* Fondos y superficies */
+  --color-fondo: #eef1f0;
   --color-superficie: #ffffff;
-  --color-borde: #dde3e2;
+  --color-superficie-2: #f6f8f7;     /* encabezados de tabla, hover */
+  --color-bandeja: #f2f6f5;          /* lotes desplegados de un producto */
+  --color-borde: #d9e0de;
+  --color-borde-fuerte: #b9c4c1;
+  --color-input: #ffffff;
 
   /* Texto */
-  --color-texto: #1e2b2a;
-  --color-texto-secundario: #5b6b69;
+  --color-texto: #16211f;
+  --color-texto-secundario: #5a6865;
+  --color-texto-tenue: #85928f;
 
-  /* Semánticos: estado de medicamentos y alertas */
-  --color-ok: #1f9254;
-  --color-ok-fondo: #e0f5eb;
-  --color-alerta: #b9770e;
-  --color-alerta-fondo: #fdf1de;
-  --color-critico: #b3261e;
-  --color-critico-fondo: #fbe4e2;
-  --color-neutro: #6b7280;
-  --color-neutro-fondo: #eef0f1;
+  /* Estados */
+  --color-ok: #1b7a46;
+  --color-ok-fondo: #e3f3ea;
+  --color-alerta: #9a5a06;
+  --color-alerta-fondo: #fbf0dc;
+  --color-critico: #b42318;
+  --color-critico-fondo: #fbe7e5;
+  --color-neutro: #66727a;
+  --color-neutro-fondo: #edf0f1;
+  --color-destacado: #fff4cc;        /* fila encontrada por el escáner */
 
-  --radio: 12px;
-  --sombra: 0 1px 3px rgba(15, 40, 38, 0.08), 0 1px 2px rgba(15, 40, 38, 0.06);
-  --fuente: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --sombra: 0 1px 2px rgba(16, 48, 43, 0.06);
+  --sombra-modal: 0 18px 50px rgba(10, 30, 26, 0.28);
+  --fondo-modal: rgba(12, 24, 22, 0.48);
+
+  --radio: 10px;
+  --radio-chico: 6px;
+  --fuente: "Plex", "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
 }
 
-* {
-  box-sizing: border-box;
+/* ---------------------------------------------------------------------
+   TOKENS - MODO OSCURO
+--------------------------------------------------------------------- */
+[data-tema="oscuro"] {
+  color-scheme: dark;
+
+  --color-primario: #4db8a0;
+  --color-primario-oscuro: #6fcab5;
+  --color-primario-claro: #173a33;
+  --color-primario-texto: #06201b;
+  --marca-fondo: #4db8a0;
+  --marca-cruz: #0b1d19;
+
+  --sidebar-bg: #0b1110;
+  --sidebar-bg-activo: rgba(255, 255, 255, 0.07);
+  --sidebar-borde: rgba(255, 255, 255, 0.07);
+  --sidebar-texto: #9fb1ad;
+  --sidebar-acento: #4db8a0;
+
+  --color-fondo: #0f1514;
+  --color-superficie: #161e1c;
+  --color-superficie-2: #1b2422;
+  --color-bandeja: #121a18;
+  --color-borde: #27322f;
+  --color-borde-fuerte: #3a4744;
+  --color-input: #111816;
+
+  --color-texto: #e3eae8;
+  --color-texto-secundario: #a2b1ad;
+  --color-texto-tenue: #74837f;
+
+  --color-ok: #5fcf8e;
+  --color-ok-fondo: #15301f;
+  --color-alerta: #e9b35a;
+  --color-alerta-fondo: #352812;
+  --color-critico: #f28b80;
+  --color-critico-fondo: #3a1a17;
+  --color-neutro: #a0abb0;
+  --color-neutro-fondo: #222b29;
+  --color-destacado: #3b3517;
+
+  --sombra: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --sombra-modal: 0 18px 50px rgba(0, 0, 0, 0.55);
+  --fondo-modal: rgba(0, 0, 0, 0.6);
 }
 
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-}
+/* ---------------------------------------------------------------------
+   BASE
+--------------------------------------------------------------------- */
+* { box-sizing: border-box; }
+
+html, body { margin: 0; padding: 0; height: 100%; }
 
 body {
   font-family: var(--fuente);
   background: var(--color-fondo);
   color: var(--color-texto);
   font-size: 15px;
-  line-height: 1.4;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
 }
 
-.oculto {
-  display: none !important;
+.oculto { display: none !important; }
+
+.icono { display: block; flex-shrink: 0; }
+
+/* Números alineados en columna (stock, lotes, fechas, códigos). */
+.tabla, .resumen-valor, .stock-cantidad, .badge { font-variant-numeric: tabular-nums; }
+
+input, select, textarea, button { font-family: inherit; }
+
+input, select, textarea {
+  background: var(--color-input);
+  color: var(--color-texto);
 }
+input::placeholder, textarea::placeholder { color: var(--color-texto-tenue); }
+
+/* Modo claro/oscuro: qué ícono muestra el botón. En modo claro se ve la
+   luna ("pasar a oscuro"); en oscuro, el sol. */
+.tema-si-oscuro { display: none; }
+[data-tema="oscuro"] .tema-si-claro { display: none; }
+[data-tema="oscuro"] .tema-si-oscuro { display: inline-flex; }
+.tema-si-claro { display: inline-flex; }
 
 /* ---------------------------------------------------------------------
    PANTALLA DE LOGIN
@@ -74,50 +171,64 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background:
-    radial-gradient(circle at 20% 20%, rgba(15, 110, 104, 0.08), transparent 40%),
-    radial-gradient(circle at 80% 80%, rgba(15, 110, 104, 0.08), transparent 40%),
-    var(--color-fondo);
-  padding: 24px;
+  padding: 24px 16px;
+  background: var(--color-fondo);
+  position: relative;
 }
+
+/* Botón de tema en la esquina del login. */
+.login-tema {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 10;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radio-chico);
+  border: 1px solid var(--color-borde);
+  background: var(--color-superficie);
+  color: var(--color-texto-secundario);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.login-tema:hover { color: var(--color-texto); border-color: var(--color-borde-fuerte); }
 
 .tarjeta-login {
   width: 100%;
-  max-width: 380px;
+  max-width: 400px;
   background: var(--color-superficie);
   border: 1px solid var(--color-borde);
+  border-top: 4px solid var(--color-primario);
   border-radius: var(--radio);
   box-shadow: var(--sombra);
-  padding: 32px 28px;
+  padding: 32px 30px 28px;
 }
 
-.login-header {
-  text-align: center;
-  margin-bottom: 24px;
-}
+.login-header { margin-bottom: 22px; }
 
 .login-icono {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: var(--color-primario-claro);
+  margin-bottom: 18px;
   color: var(--color-primario);
-  font-size: 22px;
-  margin-bottom: 12px;
 }
+.login-icono .marca { width: 40px; height: 40px; }
+.login-icono .icono { width: 34px; height: 34px; }
 
 .login-header h1 {
-  font-size: 19px;
-  margin: 0 0 4px;
-  color: var(--color-primario-oscuro);
+  font-size: 21px;
+  line-height: 1.25;
+  font-weight: 600;
+  margin: 0 0 6px;
+  color: var(--color-texto);
 }
 
 .login-header p {
   margin: 0;
-  font-size: 13px;
+  font-size: 14px;
   color: var(--color-texto-secundario);
 }
 
@@ -125,7 +236,7 @@ body {
 #form-registro label {
   display: block;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   margin: 14px 0 6px;
   color: var(--color-texto-secundario);
 }
@@ -134,26 +245,20 @@ body {
 #form-registro input {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid var(--color-borde);
-  border-radius: 8px;
-  font-size: 14px;
-  font-family: inherit;
+  border: 1px solid var(--color-borde-fuerte);
+  border-radius: var(--radio-chico);
+  font-size: 14.5px;
 }
 
 #form-login input:focus,
 #form-registro input:focus {
   outline: 2px solid var(--color-primario);
-  outline-offset: 1px;
+  outline-offset: 0;
   border-color: var(--color-primario);
 }
 
-.campo-password {
-  position: relative;
-}
-
-.campo-password input {
-  padding-right: 40px;
-}
+.campo-password { position: relative; }
+.campo-password input { padding-right: 40px; }
 
 .btn-ver-password {
   position: absolute;
@@ -163,207 +268,147 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border: none;
   background: none;
   cursor: pointer;
   padding: 0;
-  border-radius: 6px;
+  border-radius: var(--radio-chico);
   color: var(--color-texto-secundario);
-  transition: color 0.15s ease, background-color 0.15s ease;
 }
+.btn-ver-password:hover { color: var(--color-texto); background: var(--color-superficie-2); }
+.btn-ver-password:focus-visible { outline: 2px solid var(--color-primario); outline-offset: 1px; }
 
-.btn-ver-password:hover {
-  color: var(--color-texto);
-  background: var(--color-fondo);
+.login-alternar {
+  text-align: center;
+  margin: 18px 0 0;
+  font-size: 13.5px;
+  color: var(--color-texto-secundario);
 }
-
-.btn-ver-password:focus-visible {
-  outline: 2px solid var(--color-primario);
-  outline-offset: 1px;
+.btn-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-primario);
+  font-weight: 600;
+  font-size: 13.5px;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 /* ---------------------------------------------------------------------
-   BOTONES GENERALES
+   BOTONES
 --------------------------------------------------------------------- */
 .btn {
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  border: none;
-  border-radius: 8px;
-  padding: 11px 18px;
-  min-height: 42px;
-  cursor: pointer;
-  transition: background-color 0.15s ease, transform 0.05s ease;
-}
-
-.btn:active {
-  transform: scale(0.97);
-}
-.btn:focus-visible {
-  outline: 3px solid var(--color-primario);
-  outline-offset: 2px;
-}
-
-.btn-primario {
-  background: var(--color-primario);
-  color: #fff;
-}
-.btn-primario:hover {
-  background: var(--color-primario-oscuro);
-}
-
-.btn-secundario {
-  background: var(--color-neutro-fondo);
-  color: var(--color-texto);
-}
-.btn-secundario:hover {
-  background: #e2e5e6;
-}
-
-.btn-chico {
-  padding: 8px 14px;
-  min-height: 38px;
-  font-size: 13px;
-}
-
-.btn-ancho {
-  width: 100%;
-  margin-top: 20px;
-}
-
-.btn-ingreso {
-  background: var(--color-ok-fondo);
-  color: var(--color-ok);
-}
-.btn-ingreso:hover {
-  background: #cdefdd;
-}
-
-.btn-retiro {
-  background: var(--color-critico-fondo);
-  color: var(--color-critico);
-}
-.btn-retiro:hover {
-  background: #f6d3d0;
-}
-
-/* Selector Ingreso/Retiro dentro del modal de movimiento: permite elegir
-   (o cambiar) el tipo de movimiento sin tener que cerrar el modal y volver
-   a abrirlo, por ejemplo cuando lo abrió el escáner (que no puede saber
-   de antemano si el usuario quiere sumar o restar stock). */
-.mov-tipo-toggle {
-  display: flex;
-  gap: 8px;
-  margin: 12px 0 16px;
-}
-.mov-tipo-boton {
-  flex: 1;
-  padding: 10px;
-  border: 2px solid var(--color-borde);
-  border-radius: 8px;
-  background: var(--color-superficie);
-  color: var(--color-texto-secundario);
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-.mov-tipo-boton[data-tipo="ingreso"].activo {
-  background: var(--color-ok-fondo);
-  color: var(--color-ok);
-  border-color: var(--color-ok);
-}
-.mov-tipo-boton[data-tipo="retiro"].activo {
-  background: var(--color-critico-fondo);
-  color: var(--color-critico);
-  border-color: var(--color-critico);
-}
-
-/* Selector Con PR / Sin PR (receta médica), mismo estilo de botones que el
-   de Ingreso/Retiro pero con el color de marca en vez de verde/rojo, para
-   no confundirlo visualmente con ese otro toggle. Solo se muestra cuando
-   el movimiento es un retiro (ver aplicarTipoMovimiento en movimientos.js). */
-#mov-pr-seccion {
-  margin-bottom: 16px;
-}
-.mov-pr-boton {
-  flex: 1;
-  padding: 10px;
-  border: 2px solid var(--color-borde);
-  border-radius: 8px;
-  background: var(--color-superficie);
-  color: var(--color-texto-secundario);
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-.mov-pr-boton.activo {
-  background: var(--color-primario-claro);
-  color: var(--color-primario-oscuro);
-  border-color: var(--color-primario);
-}
-#mov-pr-campos {
-  margin-top: 12px;
-}
-
-/* Botones circulares: usados en la tabla de inventario para ingreso,
-   retiro, historial y editar. Compactos, con buen contraste de color
-   para reconocerlos de un vistazo sin tener que leer el texto. */
-.btn-circular {
-  width: 34px;
-  height: 34px;
-  min-height: 34px;
-  border-radius: 50%;
-  border: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 15px;
-  font-weight: 700;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  border-radius: var(--radio-chico);
+  padding: 9px 16px;
+  min-height: 40px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.btn:focus-visible { outline: 2px solid var(--color-primario); outline-offset: 2px; }
+
+.btn-primario { background: var(--color-primario); color: var(--color-primario-texto); }
+.btn-primario:hover { background: var(--color-primario-oscuro); }
+
+.btn-secundario {
+  background: var(--color-superficie);
+  color: var(--color-texto);
+  border-color: var(--color-borde-fuerte);
+}
+.btn-secundario:hover { background: var(--color-superficie-2); }
+
+.btn-chico { padding: 6px 12px; min-height: 34px; font-size: 13px; }
+
+.btn-ancho { width: 100%; margin-top: 22px; }
+
+.btn-ingreso { background: var(--color-ok-fondo); color: var(--color-ok); }
+.btn-ingreso:hover { border-color: var(--color-ok); }
+
+.btn-retiro { background: var(--color-critico-fondo); color: var(--color-critico); }
+.btn-retiro:hover { border-color: var(--color-critico); }
+
+/* Selector Ingreso/Retiro dentro del modal de movimiento. */
+.mov-tipo-toggle {
+  display: flex;
+  gap: 0;
+  margin: 12px 0 16px;
+  border: 1px solid var(--color-borde-fuerte);
+  border-radius: var(--radio-chico);
+  padding: 3px;
+  background: var(--color-superficie-2);
+}
+.mov-tipo-boton,
+.mov-pr-boton {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-texto-secundario);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.mov-tipo-boton:hover,
+.mov-pr-boton:hover { color: var(--color-texto); }
+.mov-tipo-boton[data-tipo="ingreso"].activo { background: var(--color-ok-fondo); color: var(--color-ok); box-shadow: inset 0 0 0 1px var(--color-ok); }
+.mov-tipo-boton[data-tipo="retiro"].activo { background: var(--color-critico-fondo); color: var(--color-critico); box-shadow: inset 0 0 0 1px var(--color-critico); }
+.mov-pr-boton.activo { background: var(--color-superficie); color: var(--color-primario); box-shadow: inset 0 0 0 1px var(--color-primario); }
+
+#mov-pr-seccion { margin-bottom: 16px; }
+#mov-pr-campos { margin-top: 12px; }
+
+/* Botones de acción de cada fila del inventario (retirar, ingresar,
+   historial, editar): cuadrados chicos con ícono. Retirar e ingresar
+   llevan color porque son las acciones de todos los días. */
+.btn-circular {
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  border-radius: var(--radio-chico);
+  border: 1px solid var(--color-borde);
+  background: var(--color-superficie);
+  color: var(--color-texto-secundario);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   padding: 0;
-  transition: transform 0.08s ease, filter 0.15s ease;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
-.btn-circular:active {
-  transform: scale(0.92);
-}
-.btn-circular:focus-visible {
-  outline: 3px solid var(--color-primario);
-  outline-offset: 2px;
-}
-.btn-circular.ingreso {
-  background: var(--color-ok-fondo);
-  color: var(--color-ok);
-}
-.btn-circular.retiro {
-  background: var(--color-critico-fondo);
-  color: var(--color-critico);
-}
-.btn-circular.neutro {
-  background: var(--color-neutro-fondo);
-  color: var(--color-texto-secundario);
-  font-size: 13px;
-}
-.btn-circular:hover {
-  filter: brightness(0.95);
-}
+.btn-circular:hover { border-color: var(--color-borde-fuerte); color: var(--color-texto); }
+.btn-circular:focus-visible { outline: 2px solid var(--color-primario); outline-offset: 1px; }
+.btn-circular.ingreso { background: var(--color-ok-fondo); border-color: transparent; color: var(--color-ok); }
+.btn-circular.ingreso:hover { border-color: var(--color-ok); }
+.btn-circular.retiro { background: var(--color-critico-fondo); border-color: transparent; color: var(--color-critico); }
+.btn-circular.retiro:hover { border-color: var(--color-critico); }
 
 /* ---------------------------------------------------------------------
-   LAYOUT GENERAL DE LA APP: sidebar + panel principal
+   LAYOUT GENERAL: sidebar + panel principal
 --------------------------------------------------------------------- */
-.pantalla-app {
-  display: flex;
-  min-height: 100vh;
-  align-items: stretch;
-}
+.pantalla-app { display: flex; min-height: 100vh; align-items: stretch; }
 
 /* ---------------------------------------------------------------------
    SIDEBAR
 --------------------------------------------------------------------- */
 .sidebar {
-  width: 240px;
+  width: 236px;
   flex-shrink: 0;
   background: var(--sidebar-bg);
   color: var(--sidebar-texto);
@@ -377,122 +422,111 @@ body {
 .sidebar-marca {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 22px 20px;
-  font-weight: 700;
-  font-size: 16px;
+  gap: 11px;
+  padding: 20px 18px 18px;
   color: #fff;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--sidebar-borde);
 }
-.marca-icono {
-  font-size: 20px;
-}
+.sidebar-marca .marca { --marca-fondo: var(--sidebar-acento); --marca-cruz: var(--sidebar-bg); }
+.marca-icono { display: inline-flex; }
+.marca-texto { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.marca-texto strong { font-size: 15.5px; font-weight: 600; letter-spacing: 0.01em; }
+.marca-texto span { font-size: 11.5px; color: var(--sidebar-texto); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .sidebar-nav {
   flex: 1;
-  padding: 16px 12px;
+  padding: 14px 10px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .nav-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
-  text-align: left;
   text-decoration: none;
-  background: transparent;
-  border: none;
   color: var(--sidebar-texto);
-  font-family: inherit;
   font-size: 14.5px;
-  font-weight: 600;
-  padding: 12px 14px;
-  border-radius: 10px;
-  cursor: pointer;
+  font-weight: 500;
+  padding: 10px 12px;
+  border-radius: var(--radio-chico);
   transition: background-color 0.15s ease, color 0.15s ease;
 }
-.nav-icono {
-  font-size: 17px;
+.nav-icono { display: inline-flex; opacity: 0.85; }
+.nav-item:hover { background: var(--sidebar-bg-activo); color: #fff; }
+.nav-item.activa { background: var(--sidebar-bg-activo); color: var(--sidebar-texto-activo); font-weight: 600; }
+.nav-item.activa .nav-icono { opacity: 1; color: var(--sidebar-acento); }
+/* Rayita a la izquierda del ítem activo. */
+.nav-item.activa::before {
+  content: "";
+  position: absolute;
+  left: -10px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--sidebar-acento);
 }
-.nav-item:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-}
-.nav-item.activa {
-  background: var(--sidebar-bg-activo);
-  color: #fff;
-}
-.nav-item .badge {
-  margin-left: auto;
-}
+.nav-item .badge { margin-left: auto; }
+.nav-item:focus-visible { outline: 2px solid var(--sidebar-acento); outline-offset: -2px; }
 
 .sidebar-usuario {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 16px 18px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 14px 14px 14px 16px;
+  border-top: 1px solid var(--sidebar-borde);
 }
 .usuario-avatar {
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 13px;
+  font-weight: 600;
   flex-shrink: 0;
+  text-transform: uppercase;
 }
-.usuario-texto {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  flex: 1;
-}
-.usuario-texto strong {
-  font-size: 13.5px;
-  color: #fff;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.usuario-texto span {
-  font-size: 11.5px;
-  color: var(--sidebar-texto);
-  opacity: 0.8;
-}
+.usuario-texto { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.usuario-texto strong { font-size: 13.5px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.usuario-texto span { font-size: 12px; color: var(--sidebar-texto); }
+
+/* Botones chicos del pie del menú: tema y cerrar sesión. */
+.btn-icono-sidebar,
 .btn-salir {
-  background: rgba(255, 255, 255, 0.1);
-  border: none;
-  color: #fff;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
+  background: transparent;
+  border: 1px solid var(--sidebar-borde);
+  color: var(--sidebar-texto);
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radio-chico);
   cursor: pointer;
-  font-size: 14px;
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
 }
-.btn-salir:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
+.btn-icono-sidebar:hover,
+.btn-salir:hover { background: var(--sidebar-bg-activo); color: #fff; }
+.btn-icono-sidebar:focus-visible,
+.btn-salir:focus-visible { outline: 2px solid var(--sidebar-acento); outline-offset: 1px; }
 
 /* ---------------------------------------------------------------------
-   PANEL PRINCIPAL
+   PANEL PRINCIPAL Y ENCABEZADO
 --------------------------------------------------------------------- */
-.panel-principal {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
+.panel-principal { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 
 .header-vista {
   background: var(--color-superficie);
   border-bottom: 1px solid var(--color-borde);
-  padding: 20px 28px;
+  padding: 16px 28px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -504,185 +538,165 @@ body {
 }
 
 .header-vista h1 {
-  font-size: 19px;
+  font-size: 20px;
+  font-weight: 600;
   margin: 0;
   color: var(--color-texto);
 }
 
-/* Campo de escaneo, con forma de "píldora" para que se destaque como el
-   acceso rápido más importante de toda la app. Siempre visible, sin
-   importar la vista activa, porque el lector USB puede escanear en
-   cualquier momento del turno. */
+/* Campo de escaneo: el acceso más usado de la app, por eso va siempre a
+   la vista y con el borde del color de marca. */
 .scanner-pill {
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: var(--color-primario-claro);
-  border: 2px solid var(--color-primario);
-  border-radius: 999px;
-  padding: 8px 16px;
-  min-width: 280px;
+  gap: 10px;
+  background: var(--color-input);
+  border: 1.5px solid var(--color-primario);
+  border-radius: var(--radio-chico);
+  padding: 0 12px;
+  height: 42px;
+  min-width: 340px;
+  color: var(--color-primario);
 }
+.scanner-pill:focus-within { box-shadow: 0 0 0 3px var(--color-primario-claro); }
 .scanner-pill input {
   border: none;
   background: transparent;
-  font-family: inherit;
   font-size: 14.5px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--color-texto);
   outline: none;
   width: 100%;
-}
-.scanner-pill input::placeholder {
-  color: var(--color-primario-oscuro);
-  opacity: 0.6;
+  height: 100%;
 }
 
 .scanner-mensaje {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 10px 28px 0;
-  padding: 10px 16px;
-  border-radius: 10px;
-  font-size: 13.5px;
-  font-weight: 700;
-  border-left: 4px solid transparent;
-  animation: aparecer-mensaje 0.15s ease;
+  margin: 12px 28px 0;
+  padding: 10px 14px;
+  border-radius: var(--radio-chico);
+  font-size: 14px;
+  font-weight: 500;
+  border: 1px solid transparent;
+  border-left-width: 4px;
 }
-.scanner-mensaje:empty {
-  display: none;
-}
-.scanner-mensaje.ok {
-  background: var(--color-ok-fondo);
-  color: var(--color-ok);
-  border-left-color: var(--color-ok);
-}
-.scanner-mensaje.error {
-  background: var(--color-critico-fondo);
-  color: var(--color-critico);
-  border-left-color: var(--color-critico);
-}
-
-@keyframes aparecer-mensaje {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: none; }
-}
+.scanner-mensaje:empty { display: none; }
+.scanner-mensaje.ok { background: var(--color-ok-fondo); color: var(--color-ok); border-color: var(--color-ok); }
+.scanner-mensaje.error { background: var(--color-critico-fondo); color: var(--color-critico); border-color: var(--color-critico); }
 
 /* ---------------------------------------------------------------------
    CONTENIDO / VISTAS
 --------------------------------------------------------------------- */
 .contenido {
   padding: 24px 28px 60px;
-  max-width: 1320px;
+  max-width: 1360px;
   width: 100%;
   margin: 0 auto;
 }
 
-.vista {
-  display: none;
-}
-.vista.activa {
-  display: block;
-}
+.vista { display: none; }
+.vista.activa { display: block; }
 
 .barra-acciones {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 14px;
+  margin-bottom: 14px;
   flex-wrap: wrap;
 }
 
 .barra-acciones input[type="search"] {
   flex: 1;
   min-width: 220px;
-  padding: 10px 14px;
-  border: 1px solid var(--color-borde);
-  border-radius: 8px;
+  height: 40px;
+  padding: 0 14px 0 38px;
+  border: 1px solid var(--color-borde-fuerte);
+  border-radius: var(--radio-chico);
   font-size: 14px;
-  font-family: inherit;
+  /* lupa dibujada como fondo, así no hace falta tocar el HTML del campo */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2385928f' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 13px center;
 }
+.barra-acciones input[type="search"]:focus { outline: 2px solid var(--color-primario); outline-offset: 0; border-color: var(--color-primario); }
 
 .check-dados-baja {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 13px;
+  gap: 7px;
+  font-size: 13.5px;
   color: var(--color-texto-secundario);
   white-space: nowrap;
   cursor: pointer;
 }
-.check-dados-baja input {
-  cursor: pointer;
-}
+.check-dados-baja input { cursor: pointer; accent-color: var(--color-primario); width: 16px; height: 16px; }
 
 /* ---------------------------------------------------------------------
-   TARJETAS RESUMEN (estadísticas rápidas del inventario)
+   RESUMEN (franja con los tres números de arriba del inventario)
+   ---------------------------------------------------------------------
+   Una sola franja dividida en tres, en vez de tres tarjetas sueltas. Los
+   números de alerta toman color sólo cuando son mayores que cero (lo
+   marca js/inventario.js con la clase "hay-alerta").
 --------------------------------------------------------------------- */
 .tarjetas-resumen {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-  margin-bottom: 22px;
-}
-@media (max-width: 900px) {
-  .tarjetas-resumen { grid-template-columns: 1fr; }
-}
-
-.tarjeta-resumen {
+  margin-bottom: 20px;
   background: var(--color-superficie);
   border: 1px solid var(--color-borde);
   border-radius: var(--radio);
   box-shadow: var(--sombra);
-  padding: 18px 20px;
+  overflow: hidden;
+}
+
+.tarjeta-resumen {
+  padding: 16px 20px;
   display: flex;
   align-items: center;
   gap: 14px;
-}
-
-/* Las tarjetas de "Stock bajo" y "Próximos a vencer" son también un link
-   a la vista de Alertas (ver inventario.html): mismo aspecto que las
-   demás, pero con un detalle sutil al pasar el mouse para que se note
-   que se puede tocar. */
-.tarjeta-resumen-link {
-  text-decoration: none;
   color: inherit;
-  cursor: pointer;
-  transition: transform 0.1s ease, box-shadow 0.15s ease;
+  text-decoration: none;
+  border-left: 1px solid var(--color-borde);
 }
-.tarjeta-resumen-link:hover {
-  box-shadow: 0 4px 14px rgba(15, 40, 38, 0.12);
-  transform: translateY(-1px);
-}
+.tarjeta-resumen:first-child { border-left: none; }
+
+.tarjeta-resumen-link { cursor: pointer; transition: background-color 0.15s ease; }
+.tarjeta-resumen-link:hover { background: var(--color-superficie-2); }
+.tarjeta-resumen-link:focus-visible { outline: 2px solid var(--color-primario); outline-offset: -2px; }
 
 .resumen-icono {
-  width: 46px;
-  height: 46px;
-  border-radius: 12px;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radio-chico);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
   flex-shrink: 0;
+  color: var(--color-texto-secundario);
+  background: var(--color-superficie-2);
+  border: 1px solid var(--color-borde);
 }
-.resumen-icono-info { background: var(--color-primario-claro); color: var(--color-primario); }
-.resumen-icono-alerta { background: var(--color-alerta-fondo); color: var(--color-alerta); }
-.resumen-icono-critico { background: var(--color-critico-fondo); color: var(--color-critico); }
+.tarjeta-resumen.hay-alerta .resumen-icono-alerta { color: var(--color-alerta); background: var(--color-alerta-fondo); border-color: transparent; }
+.tarjeta-resumen.hay-alerta .resumen-icono-critico { color: var(--color-critico); background: var(--color-critico-fondo); border-color: transparent; }
 
 .resumen-etiqueta {
   display: block;
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--color-texto-secundario);
-  margin-bottom: 2px;
+  margin-bottom: 1px;
 }
 .resumen-valor {
   display: block;
-  font-size: 24px;
-  font-weight: 700;
+  font-size: 26px;
+  line-height: 1.15;
+  font-weight: 600;
   color: var(--color-texto);
 }
+.tarjeta-resumen.hay-alerta .resumen-valor { color: var(--color-alerta); }
+.tarjeta-resumen.hay-alerta:has(.resumen-icono-critico) .resumen-valor { color: var(--color-critico); }
 
 /* ---------------------------------------------------------------------
    TABLAS
@@ -698,160 +712,156 @@ body {
 .tabla {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13.5px;
-  min-width: 900px;
+  font-size: 14px;
+  min-width: 920px;
 }
 
 .tabla th {
   text-align: left;
-  padding: 12px 14px;
-  background: var(--color-fondo);
+  padding: 11px 12px;
+  background: var(--color-superficie-2);
   color: var(--color-texto-secundario);
-  font-size: 11.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: 12.5px;
+  font-weight: 600;
   border-bottom: 1px solid var(--color-borde);
   white-space: nowrap;
 }
 
 .tabla td {
-  padding: 12px 14px;
+  padding: 11px 12px;
   border-bottom: 1px solid var(--color-borde);
   vertical-align: middle;
 }
 
-.tabla tbody tr:last-child td {
-  border-bottom: none;
-}
+.tabla tbody tr:last-child td { border-bottom: none; }
+.tabla tbody tr:hover { background: var(--color-superficie-2); }
+.tabla tbody tr.fila-destacada,
+.tabla tbody tr.fila-destacada:hover { background: var(--color-destacado); }
 
-.tabla tbody tr:hover {
-  background: #fafcfc;
-}
+/* Tabla de auditoría (Historial): más aire, porque acá se lee. */
+.tabla-historial { font-size: 14.5px; }
+.tabla-historial th { padding: 13px 18px; }
+.tabla-historial td { padding: 13px 18px; }
+.tabla-historial td:first-child { white-space: nowrap; }
 
-.tabla tbody tr.fila-destacada {
-  background: #fff7d6;
-}
-
-/* Tabla de auditoría (Historial): más grande y espaciada que las tablas
-   compactas del inventario, porque acá se lee, no se opera fila por fila
-   con botones — prioriza legibilidad por sobre densidad. */
-.tabla-historial {
-  font-size: 15px;
-}
-.tabla-historial th {
-  padding: 16px 18px;
-  font-size: 12.5px;
-}
-.tabla-historial td {
-  padding: 16px 18px;
-}
-
-/* Chip de "Tipo" en la auditoría: ícono grande a la izquierda + texto,
-   para que se distinga el tipo de movimiento de un vistazo sin tener que
-   leer la palabra completa. */
+/* Tipo de movimiento en la auditoría: ícono + palabra. */
 .chip-tipo {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   font-weight: 600;
+  vertical-align: middle;
 }
 .chip-tipo-icono {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  font-size: 16px;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radio-chico);
 }
-.chip-tipo-alta .chip-tipo-icono { background: var(--color-primario-claro); }
-.chip-tipo-ingreso .chip-tipo-icono { background: var(--color-ok-fondo); }
-.chip-tipo-retiro .chip-tipo-icono { background: var(--color-critico-fondo); }
-.chip-tipo-ajuste .chip-tipo-icono { background: var(--color-alerta-fondo); }
-.chip-tipo-baja .chip-tipo-icono { background: var(--color-neutro-fondo); }
+.chip-tipo-alta .chip-tipo-icono { background: var(--color-primario-claro); color: var(--color-primario); }
+.chip-tipo-ingreso .chip-tipo-icono { background: var(--color-ok-fondo); color: var(--color-ok); }
+.chip-tipo-retiro .chip-tipo-icono { background: var(--color-critico-fondo); color: var(--color-critico); }
+.chip-tipo-ajuste .chip-tipo-icono { background: var(--color-alerta-fondo); color: var(--color-alerta); }
+.chip-tipo-baja .chip-tipo-icono { background: var(--color-neutro-fondo); color: var(--color-neutro); }
+.chip-tipo + .chip { margin-left: 8px; vertical-align: middle; }
 
-.nombre-medicamento strong {
-  display: block;
-  font-size: 14px;
-}
-.nombre-medicamento span {
-  display: block;
-  font-size: 12px;
-  color: var(--color-texto-secundario);
-}
+.nombre-medicamento strong { display: block; font-size: 14.5px; font-weight: 600; }
+.nombre-medicamento span { display: block; font-size: 12.5px; color: var(--color-texto-secundario); }
 
-/* El código de barras es un dato técnico para que la app busque, no algo
-   que una persona necesite leer entero de un vistazo. Por eso va chico,
-   en gris, y truncado con "..." si es muy largo (como los códigos 2D de
-   trazabilidad) — el valor completo se puede ver dejando el mouse encima. */
+/* El código de barras es un dato técnico: va chico, en gris y cortado si
+   es muy largo (el valor completo aparece dejando el mouse encima). */
 .codigo-truncado {
   display: inline-block;
-  max-width: 120px;
+  max-width: 116px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   vertical-align: bottom;
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--color-texto-secundario);
+}
+/* Código guardado a partir del QR del laboratorio (un link): no sirve
+   para encontrar el producto, se marca para que lo corrijan. */
+.codigo-invalido {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-critico);
+  white-space: nowrap;
 }
 
 .texto-vacio {
   text-align: center;
-  padding: 32px;
+  padding: 36px;
   color: var(--color-texto-secundario);
   font-size: 14px;
 }
 
-.acciones-fila {
-  display: flex;
-  gap: 6px;
-  flex-wrap: nowrap;
-}
+.acciones-fila { display: flex; gap: 5px; flex-wrap: nowrap; justify-content: flex-end; }
 
 /* ---------------------------------------------------------------------
-   ETIQUETAS (chips / píldoras) DE ESTADO Y STOCK
+   CHIPS, ESTADOS Y STOCK
 --------------------------------------------------------------------- */
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 11px;
+  gap: 5px;
+  padding: 2px 9px;
   border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 12.5px;
+  font-weight: 600;
   white-space: nowrap;
+  line-height: 1.6;
 }
 
-.chip-activo { background: var(--color-ok-fondo); color: var(--color-ok); }
-.chip-vencido { background: var(--color-critico-fondo); color: var(--color-critico); }
-.chip-dado_de_baja { background: var(--color-neutro-fondo); color: var(--color-neutro); }
+/* Estado de un lote: punto de color + palabra (más calmo que una píldora
+   de color en cada fila; el color fuerte queda para lo que hay que mirar). */
+.chip-activo,
+.chip-vencido,
+.chip-dado_de_baja {
+  background: none;
+  padding: 0;
+  font-weight: 500;
+  color: var(--color-texto-secundario);
+}
+.chip-activo::before,
+.chip-vencido::before,
+.chip-dado_de_baja::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.chip-activo::before { background: var(--color-ok); }
+.chip-vencido { color: var(--color-critico); font-weight: 600; }
+.chip-dado_de_baja { color: var(--color-texto-tenue); }
 
-/* Marca si un retiro fue con receta médica (PR) o sin ella, en la
-   columna "Tipo" del historial (ver historial.js). */
-.chip-pr-si { background: var(--color-primario-claro); color: var(--color-primario-oscuro); }
+/* Receta (PR) y rol de usuario. */
+.chip-pr-si { background: var(--color-primario-claro); color: var(--color-primario); }
 .chip-pr-no { background: var(--color-neutro-fondo); color: var(--color-neutro); }
 
-/* Estado de una cuenta de usuario, en la vista "Usuarios" (solo admin). */
+/* Estado de cuenta (vista Usuarios). */
 .chip-aprobado { background: var(--color-ok-fondo); color: var(--color-ok); }
 .chip-pendiente { background: var(--color-alerta-fondo); color: var(--color-alerta); }
 .chip-rechazado { background: var(--color-critico-fondo); color: var(--color-critico); }
 
-.chip-stock-ok { background: var(--color-ok-fondo); color: var(--color-ok); }
-
-/* Dentro del chip de stock, la cantidad va más marcada y la unidad más
-   discreta, para que no se lean como un solo número pegado (ej: una
-   unidad mal cargada como "500 mg" no debería confundirse con la
-   cantidad real, ej: "8"). */
-.stock-cantidad {
-  font-weight: 800;
-}
-.stock-unidad {
-  font-weight: 500;
-  opacity: 0.75;
-  font-size: 0.92em;
-}
-.chip-stock-bajo { background: var(--color-alerta-fondo); color: var(--color-alerta); }
+/* Vencimientos que requieren atención. */
 .chip-vence-pronto { background: var(--color-alerta-fondo); color: var(--color-alerta); }
+.chip.chip-vencido.chip-venc { background: var(--color-critico-fondo); padding: 2px 9px; font-weight: 600; }
+.chip.chip-vencido.chip-venc::before { display: none; }
+
+/* Stock: número fuerte + unidad tenue. Sin fondo cuando está bien; en
+   ámbar cuando está en o por debajo del mínimo. */
+.chip-stock-ok { background: none; padding: 0; color: var(--color-texto); font-weight: 400; }
+.chip-stock-bajo { background: var(--color-alerta-fondo); color: var(--color-alerta); }
+.stock-cantidad { font-weight: 600; font-size: 14.5px; }
+.stock-unidad { font-weight: 400; color: var(--color-texto-secundario); font-size: 12.5px; }
+.chip-stock-bajo .stock-unidad { color: inherit; opacity: 0.85; }
 
 .badge {
   display: inline-flex;
@@ -861,171 +871,201 @@ body {
   height: 20px;
   padding: 0 6px;
   border-radius: 999px;
-  background: var(--color-critico);
+  background: #d64532;
   color: #fff;
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 11.5px;
+  font-weight: 600;
 }
+
+.fecha-venc { display: block; white-space: nowrap; }
+.fecha-venc + .chip { margin-top: 4px; }
+.texto-tenue { color: var(--color-texto-tenue); }
+.texto-secundario { color: var(--color-texto-secundario); font-size: 13px; }
 
 /* ---------------------------------------------------------------------
-   INVENTARIO AGRUPADO POR PRODUCTO (filas desplegables)
+   INVENTARIO AGRUPADO POR PRODUCTO
    ---------------------------------------------------------------------
-   Varios lotes (cajas) del mismo producto comparten código de barras, así
-   que se agrupan bajo una sola fila resumen en vez de repetir el nombre
-   una vez por lote. Esa fila se puede desplegar para ver el detalle de
-   cada lote.
+   Varios lotes del mismo producto comparten código de barras y se
+   agrupan bajo una fila "producto". Al desplegarla, los lotes aparecen
+   dentro de una "bandeja": fondo un poco distinto, una línea vertical de
+   color que los une al producto y una conexión tipo árbol en cada lote.
+   Así queda claro a simple vista qué lotes son de qué producto.
 --------------------------------------------------------------------- */
-.fila-producto {
-  cursor: pointer;
-  background: var(--color-fondo);
-}
-.fila-producto:hover {
-  background: #eef2f1;
-}
+.fila-producto { cursor: pointer; }
+.fila-producto td { border-bottom-color: var(--color-borde); }
+.celda-producto { display: flex; align-items: flex-start; gap: 9px; }
+.celda-producto > div { min-width: 0; }
 
 .btn-expandir {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  margin-top: 1px;
   background: transparent;
-  border: none;
+  border: 1px solid var(--color-borde-fuerte);
+  border-radius: 5px;
   cursor: pointer;
-  font-size: 12px;
   color: var(--color-texto-secundario);
-  padding: 2px 4px;
-  margin-right: 2px;
-  vertical-align: middle;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-expandir .icono { transition: transform 0.15s ease; }
+.fila-producto.expandida .btn-expandir { background: var(--color-primario); border-color: var(--color-primario); color: var(--color-primario-texto); }
+.fila-producto.expandida .btn-expandir .icono { transform: rotate(90deg); }
+.btn-expandir:focus-visible { outline: 2px solid var(--color-primario); outline-offset: 1px; }
+
+/* Cantidad de lotes del producto, en la columna "Lote". */
+.contador-lotes {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 8px;
+  border: 1px solid var(--color-borde-fuerte);
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-texto-secundario);
+  white-space: nowrap;
 }
 
-.fila-lote-hija {
-  background: #fbfcfc;
-}
+/* Producto desplegado: encabezado de la bandeja. */
+.fila-producto.expandida { background: var(--color-primario-claro); }
+.fila-producto.expandida:hover { background: var(--color-primario-claro); }
+.fila-producto.expandida td:first-child { box-shadow: inset 4px 0 0 var(--color-primario); }
+.fila-producto.expandida .contador-lotes { border-color: var(--color-primario); color: var(--color-primario); }
+
+/* Lotes dentro de la bandeja. */
+.fila-lote-hija { background: var(--color-bandeja); }
+.fila-lote-hija:hover { background: var(--color-superficie-2); }
+.fila-lote-hija td { border-bottom-color: var(--color-borde); padding-top: 9px; padding-bottom: 9px; }
+.fila-lote-hija td:first-child { box-shadow: inset 4px 0 0 var(--color-primario); position: relative; }
+/* Último lote del grupo: cierra la bandeja con un borde más marcado. */
+.fila-lote-hija.ultimo-lote td { border-bottom: 2px solid var(--color-borde-fuerte); }
+
+/* Conexión tipo árbol: ├ para cada lote, └ para el último. */
 .lote-indent {
-  display: block;
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+  padding-left: 46px;
   font-size: 12.5px;
   color: var(--color-texto-secundario);
-  padding-left: 18px;
+}
+.lote-indent::before {
+  content: "";
+  position: absolute;
+  left: 21px;
+  top: -10px;
+  bottom: -10px;
+  border-left: 1.5px solid var(--color-borde-fuerte);
+}
+.fila-lote-hija.ultimo-lote .lote-indent::before { bottom: 50%; }
+.lote-indent::after {
+  content: "";
+  position: absolute;
+  left: 21px;
+  width: 16px;
+  top: 50%;
+  border-top: 1.5px solid var(--color-borde-fuerte);
+}
+
+/* Número de lote: el dato que identifica cada fila de la bandeja. */
+.numero-lote { font-weight: 600; letter-spacing: 0.01em; }
+.fila-lote-hija .numero-lote { color: var(--color-texto); }
+
+/* Marca del lote que se usa primero (el que vence antes, regla FEFO:
+   es el mismo que elige el escáner al retirar). */
+.etiqueta-fefo {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 4px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--color-primario);
+  background: var(--color-primario-claro);
+  white-space: nowrap;
 }
 
 /* ---------------------------------------------------------------------
    ALERTAS
 --------------------------------------------------------------------- */
-.grilla-alertas {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-}
-
-@media (max-width: 860px) {
-  .grilla-alertas {
-    grid-template-columns: 1fr;
-  }
-}
+.grilla-alertas { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
 
 .panel-alerta {
   background: var(--color-superficie);
   border: 1px solid var(--color-borde);
   border-radius: var(--radio);
-  padding: 18px;
+  padding: 18px 18px 20px;
   box-shadow: var(--sombra);
 }
 
 .panel-alerta h2 {
-  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  font-weight: 600;
   margin: 0 0 4px;
 }
+.panel-alerta h2 .icono { color: var(--color-alerta); }
+#alertas-vencimiento h2 .icono { color: var(--color-critico); }
 
-.subtexto {
-  font-size: 12.5px;
-  color: var(--color-texto-secundario);
-  margin: 0 0 14px;
-}
+.subtexto { font-size: 13.5px; color: var(--color-texto-secundario); margin: 0 0 14px; }
 
-.lista-alertas {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
+.lista-alertas { display: flex; flex-direction: column; gap: 8px; }
 
 .item-alerta {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   padding: 10px 12px;
-  border-radius: 8px;
+  border-radius: var(--radio-chico);
+  border: 1px solid var(--color-borde);
   border-left: 4px solid var(--color-alerta);
-  background: var(--color-alerta-fondo);
+  background: var(--color-superficie);
 }
+.item-alerta.critico { border-left-color: var(--color-critico); }
 
-.item-alerta.critico {
-  border-left-color: var(--color-critico);
-  background: var(--color-critico-fondo);
-}
+.item-alerta .info { min-width: 0; }
+.item-alerta .info strong { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; }
+.item-alerta .info span { font-size: 12.5px; color: var(--color-texto-secundario); }
+.item-alerta .valor { font-weight: 600; font-size: 13px; white-space: nowrap; color: var(--color-alerta); }
+.item-alerta.critico .valor { color: var(--color-critico); }
 
-.item-alerta .info strong {
-  display: block;
-  font-size: 13.5px;
-}
+.item-alerta-grupo { cursor: pointer; user-select: none; }
+.item-alerta-grupo:hover { background: var(--color-superficie-2); }
+.item-alerta-grupo .icono { transition: transform 0.15s ease; color: var(--color-texto-secundario); }
+.item-alerta-grupo.expandido .icono { transform: rotate(90deg); }
 
-.item-alerta .info span {
-  font-size: 12px;
-  color: var(--color-texto-secundario);
-}
-
-.item-alerta .valor {
-  font-weight: 700;
-  font-size: 13px;
-  white-space: nowrap;
-}
-
-/* Renglón "grupo": encabezado clickeable de un producto con 2+ lotes en
-   alerta (ver js/alertas.js). Se despliega/repliega tocándolo. */
-.item-alerta-grupo {
-  cursor: pointer;
-  user-select: none;
-}
-.item-alerta-grupo:hover {
-  filter: brightness(0.97);
-}
-
-/* Renglón "lote": el detalle de un lote puntual dentro de un grupo
-   desplegado. Un poco más chico e indentado para marcar la jerarquía. */
 .item-alerta-hija {
-  margin-left: 20px;
-  padding-top: 8px;
-  padding-bottom: 8px;
+  margin-left: 22px;
+  padding-top: 7px;
+  padding-bottom: 7px;
+  background: var(--color-bandeja);
 }
-.item-alerta-hija .info strong {
-  font-size: 12.5px;
-  font-weight: 600;
-}
+.item-alerta-hija .info strong { font-size: 13px; font-weight: 500; }
 
 /* ---------------------------------------------------------------------
-   VISTA PREVIA EN VIVO DEL STOCK RESULTANTE (modal de movimiento)
+   VISTA PREVIA DEL STOCK RESULTANTE (modal de movimiento)
 --------------------------------------------------------------------- */
 .preview-resultado {
   margin: 10px 0 4px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  font-size: 13.5px;
-  font-weight: 600;
+  padding: 9px 12px;
+  border-radius: var(--radio-chico);
+  font-size: 14px;
+  font-weight: 500;
   border-left: 4px solid var(--color-neutro);
   background: var(--color-neutro-fondo);
   color: var(--color-texto);
 }
-.preview-resultado.bien {
-  border-left-color: var(--color-ok);
-  background: var(--color-ok-fondo);
-  color: var(--color-ok);
-}
-.preview-resultado.advertencia {
-  border-left-color: var(--color-alerta);
-  background: var(--color-alerta-fondo);
-  color: var(--color-alerta);
-}
-.preview-resultado.error {
-  border-left-color: var(--color-critico);
-  background: var(--color-critico-fondo);
-  color: var(--color-critico);
-}
+.preview-resultado.bien { border-left-color: var(--color-ok); background: var(--color-ok-fondo); color: var(--color-ok); }
+.preview-resultado.advertencia { border-left-color: var(--color-alerta); background: var(--color-alerta-fondo); color: var(--color-alerta); }
+.preview-resultado.error { border-left-color: var(--color-critico); background: var(--color-critico-fondo); color: var(--color-critico); }
 
 /* ---------------------------------------------------------------------
    MODALES
@@ -1033,104 +1073,88 @@ body {
 .modal-fondo {
   position: fixed;
   inset: 0;
-  background: rgba(15, 25, 24, 0.45);
+  background: var(--fondo-modal);
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding: 40px 16px;
+  padding: 48px 16px;
   overflow-y: auto;
   z-index: 100;
 }
 
 .modal-caja {
   background: var(--color-superficie);
+  border: 1px solid var(--color-borde);
   border-radius: var(--radio);
   width: 100%;
   max-width: 720px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  box-shadow: var(--sombra-modal);
 }
-
-.modal-chica {
-  max-width: 420px;
-}
+.modal-chica { max-width: 440px; }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 18px 22px;
+  padding: 16px 22px;
   border-bottom: 1px solid var(--color-borde);
 }
-
-.modal-header h2 {
-  font-size: 16px;
-  margin: 0;
-}
+.modal-header h2 { font-size: 17px; font-weight: 600; margin: 0; }
 
 .btn-cerrar {
   background: transparent;
   border: none;
-  font-size: 16px;
+  font-size: 15px;
   cursor: pointer;
   color: var(--color-texto-secundario);
-  padding: 4px 8px;
-  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radio-chico);
 }
-.btn-cerrar:hover {
-  background: var(--color-neutro-fondo);
-}
+.btn-cerrar:hover { background: var(--color-superficie-2); color: var(--color-texto); }
 
-#form-movimiento {
-  padding: 20px 22px;
-}
+/* Dentro del modal de historial, la tabla no lleva su propio borde. */
+.modal-caja .tabla-wrapper { border: none; box-shadow: none; border-radius: 0 0 var(--radio) var(--radio); }
+
+#form-movimiento { padding: 18px 22px 22px; }
+#form-movimiento > p:first-of-type { margin: 0 0 2px; font-size: 16px; }
 
 #form-movimiento label {
   display: block;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   margin: 12px 0 6px;
   color: var(--color-texto-secundario);
 }
 
 #form-movimiento input,
-#form-movimiento textarea {
+#form-movimiento textarea,
+.campo input,
+.campo select {
   width: 100%;
   padding: 9px 12px;
-  border: 1px solid var(--color-borde);
-  border-radius: 8px;
-  font-family: inherit;
-  font-size: 14px;
+  border: 1px solid var(--color-borde-fuerte);
+  border-radius: var(--radio-chico);
+  font-size: 14.5px;
 }
+#form-movimiento input:focus,
+#form-movimiento textarea:focus,
+.campo input:focus,
+.campo select:focus { outline: 2px solid var(--color-primario); outline-offset: 0; border-color: var(--color-primario); }
 
 .form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
-  padding: 20px 22px;
-}
-
-@media (max-width: 620px) {
-  .form-grid {
-    grid-template-columns: 1fr;
-  }
+  gap: 14px 16px;
+  padding: 20px 22px 22px;
 }
 
 .campo label {
   display: block;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   margin-bottom: 6px;
   color: var(--color-texto-secundario);
-}
-
-.campo input,
-.campo select {
-  width: 100%;
-  padding: 9px 12px;
-  border: 1px solid var(--color-borde);
-  border-radius: 8px;
-  font-family: inherit;
-  font-size: 14px;
 }
 
 .modal-acciones {
@@ -1138,30 +1162,7 @@ body {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  margin-top: 6px;
-}
-
-.aviso-conexion {
-  max-width: 420px;
-  margin: 18vh auto 0;
-  padding: 0 20px;
-  text-align: center;
-}
-
-.aviso-conexion-icono {
-  font-size: 40px;
-}
-
-.aviso-conexion h1 {
-  font-size: 20px;
-  margin: 12px 0 8px;
-  color: var(--color-texto);
-}
-
-.aviso-conexion p {
-  color: var(--color-texto-secundario);
-  margin: 0 0 18px;
-  line-height: 1.5;
+  margin-top: 8px;
 }
 
 .mensaje-error {
@@ -1169,8 +1170,8 @@ body {
   background: var(--color-critico-fondo);
   color: var(--color-critico);
   padding: 9px 12px;
-  border-radius: 8px;
-  font-size: 13px;
+  border-radius: var(--radio-chico);
+  font-size: 13.5px;
   margin: 4px 0 0;
 }
 
@@ -1179,29 +1180,22 @@ body {
   background: var(--color-ok-fondo);
   color: var(--color-ok);
   padding: 9px 12px;
-  border-radius: 8px;
-  font-size: 13px;
+  border-radius: var(--radio-chico);
+  font-size: 13.5px;
   margin: 4px 0 0;
 }
 
-/* Link para alternar entre "Iniciar sesión" y "Crear cuenta" en la
-   pantalla de login. */
-.login-alternar {
+/* Pantalla "sin conexión con la base". */
+.aviso-conexion {
+  max-width: 440px;
+  margin: 18vh auto 0;
+  padding: 0 20px;
   text-align: center;
-  margin: 16px 0 0;
-  font-size: 13px;
-  color: var(--color-texto-secundario);
 }
-.btn-link {
-  background: none;
-  border: none;
-  padding: 0;
-  color: var(--color-primario);
-  font-weight: 600;
-  font-size: 13px;
-  cursor: pointer;
-  text-decoration: underline;
-}
+.aviso-conexion-icono { display: inline-flex; color: var(--color-critico); }
+.aviso-conexion-icono .icono { width: 40px; height: 40px; }
+.aviso-conexion h1 { font-size: 20px; font-weight: 600; margin: 12px 0 8px; color: var(--color-texto); }
+.aviso-conexion p { color: var(--color-texto-secundario); margin: 0 0 18px; line-height: 1.5; }
 
 /* ---------------------------------------------------------------------
    TOAST (mensaje flotante de confirmación)
@@ -1211,26 +1205,37 @@ body {
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--color-primario-oscuro);
+  background: #1d2b28;
   color: #fff;
-  padding: 14px 24px;
-  border-radius: 999px;
-  font-size: 14.5px;
-  font-weight: 700;
-  box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+  padding: 12px 20px;
+  border-radius: var(--radio-chico);
+  border-left: 4px solid var(--sidebar-acento);
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: var(--sombra-modal);
   z-index: 200;
   max-width: 90vw;
 }
-.toast.exito { background: var(--color-ok); }
-.toast.error { background: var(--color-critico); }
+.toast.exito { border-left-color: #5fcf8e; }
+.toast.error { border-left-color: #f28b80; }
 
 /* ---------------------------------------------------------------------
-   RESPONSIVE GENERAL
+   ACCESIBILIDAD: si el sistema pide menos animaciones, las sacamos.
 --------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+
+/* ---------------------------------------------------------------------
+   RESPONSIVE: tablets
+--------------------------------------------------------------------- */
+@media (max-width: 900px) {
+  .resumen-icono { display: none; }
+  .grilla-alertas { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 860px) {
-  .pantalla-app {
-    flex-direction: column;
-  }
+  .pantalla-app { flex-direction: column; }
   .sidebar {
     width: 100%;
     height: auto;
@@ -1239,64 +1244,30 @@ body {
     align-items: center;
     flex-wrap: wrap;
   }
-  .sidebar-marca {
-    border-bottom: none;
-    padding: 14px 16px;
-  }
-  .sidebar-nav {
-    flex-direction: row;
-    padding: 6px 10px;
-    overflow-x: auto;
-  }
-  .sidebar-usuario {
-    border-top: none;
-    margin-left: auto;
-  }
-  .header-vista, .contenido {
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-  .scanner-pill {
-    min-width: 0;
-    flex: 1;
-  }
+  .sidebar-marca { border-bottom: none; padding: 12px 16px; }
+  .sidebar-nav { flex-direction: row; padding: 6px 10px; overflow-x: auto; }
+  .nav-item.activa::before { display: none; }
+  .sidebar-usuario { border-top: none; margin-left: auto; }
+  .header-vista, .contenido { padding-left: 16px; padding-right: 16px; }
+  .scanner-pill { min-width: 0; flex: 1; }
+}
+
+@media (max-width: 620px) {
+  .form-grid { grid-template-columns: 1fr; }
 }
 
 /* ---------------------------------------------------------------------
-   RESPONSIVE CELULARES (pantallas angostas, uso con el pulgar)
-   ---------------------------------------------------------------------
-   En vez de una barra lateral, en el celular la navegación pasa a ser
-   una barra fija ABAJO de la pantalla (igual que WhatsApp, Instagram,
-   etc.): es la zona que el pulgar alcanza más cómodo sosteniendo el
-   teléfono con una mano, ideal para moverse rápido entre secciones
-   mientras se atiende a un paciente.
+   RESPONSIVE: celulares (navegación abajo, al alcance del pulgar)
 --------------------------------------------------------------------- */
 @media (max-width: 700px) {
-  body {
-    font-size: 14.5px;
-  }
+  body { font-size: 14.5px; }
 
-  /* La barra lateral queda como una franja superior angosta, solo con
-     la marca y el usuario: la navegación se muestra abajo. */
-  .sidebar {
-    height: auto;
-    padding: 0;
-    justify-content: space-between;
-  }
-  .sidebar-marca {
-    padding: 10px 14px;
-    font-size: 14px;
-  }
-  .marca-icono { font-size: 17px; }
-  .sidebar-usuario {
-    padding: 8px 12px;
-  }
-  .usuario-texto span {
-    display: none; /* "Sesión activa" no es imprescindible en pantallas chicas */
-  }
+  .sidebar { height: auto; padding: 0; justify-content: space-between; flex-wrap: nowrap; }
+  .sidebar-marca { padding: 10px 14px; }
+  .marca-texto span { display: none; }
+  .sidebar-usuario { padding: 8px 12px; gap: 8px; }
+  .usuario-avatar, .usuario-texto { display: none; }
 
-  /* Barra de navegación inferior, fija, siempre visible y alcanzable
-     con el pulgar. */
   .sidebar-nav {
     position: fixed;
     bottom: 0;
@@ -1309,103 +1280,503 @@ body {
     gap: 0;
     padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
     background: var(--sidebar-bg);
-    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    border-top: 1px solid var(--sidebar-borde);
     overflow-x: visible;
   }
   .nav-item {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
+    gap: 3px;
     flex: 1;
     padding: 6px 2px;
-    font-size: 10.5px;
-    font-weight: 700;
+    font-size: 11px;
+    font-weight: 600;
     text-align: center;
-    position: relative;
-    border-radius: 10px;
     white-space: nowrap;
   }
-  .nav-icono {
-    font-size: 19px;
-  }
-  .nav-item .badge {
-    position: absolute;
-    top: 2px;
-    right: 14%;
-    margin-left: 0;
-  }
+  .nav-item .badge { position: absolute; top: 2px; right: 16%; margin-left: 0; }
 
-  /* Dejamos espacio abajo de todo el contenido para que la barra fija
-     no tape el final de las tablas, formularios, etc. */
-  .contenido {
-    padding: 16px 14px calc(76px + env(safe-area-inset-bottom));
-  }
+  .contenido { padding: 16px 14px calc(80px + env(safe-area-inset-bottom)); }
 
-  .header-vista {
-    flex-direction: column;
-    align-items: stretch;
+  .header-vista { flex-direction: column; align-items: stretch; padding: 12px 14px; gap: 10px; }
+  .header-vista h1 { font-size: 17px; }
+  .scanner-pill { width: 100%; min-width: 0; flex: none; }
+  .scanner-mensaje { margin: 8px 14px 0; padding: 8px 12px; }
+
+  .tarjeta-resumen { padding: 10px 12px; align-items: flex-start; }
+  .resumen-etiqueta { font-size: 12px; line-height: 1.3; }
+  .resumen-valor { font-size: 21px; }
+
+  .barra-acciones { flex-direction: column; align-items: stretch; }
+  .barra-acciones input[type="search"] { width: 100%; flex: none; }
+
+  .tabla-wrapper { -webkit-overflow-scrolling: touch; }
+
+  .modal-fondo { padding: 16px 10px calc(90px + env(safe-area-inset-bottom)); }
+  .modal-caja { max-width: 100%; }
+  .form-grid, #form-movimiento { padding: 16px; }
+
+  .toast { bottom: calc(80px + env(safe-area-inset-bottom)); font-size: 13.5px; }
+}
+
+/* Texto sólo para lectores de pantalla (no se ve, pero se lee en voz alta). */
+.oculto-visual {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* En Usuarios, la clase acciones-fila va directamente en la celda <td>:
+   tiene que seguir comportándose como celda de tabla para no desalinear
+   los bordes. */
+.tabla td.acciones-fila { display: table-cell; text-align: right; white-space: nowrap; }
+.tabla td.acciones-fila .btn + .btn { margin-left: 6px; }
+
+/* =====================================================================
+   AYUDA DE "MOSTRAR DADOS DE BAJA"
+   ---------------------------------------------------------------------
+   Globo explicativo: aparece al pasar el mouse por la casilla, al llegar
+   con el teclado, o al tocar la (i) en el celular (que no tiene "pasar
+   el mouse").
+===================================================================== */
+.check-con-ayuda {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.btn-ayuda {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-texto-tenue);
+  cursor: help;
+}
+.btn-ayuda:hover, .btn-ayuda:focus-visible { color: var(--color-primario); }
+.btn-ayuda:focus-visible { outline: 2px solid var(--color-primario); outline-offset: 1px; }
+
+.globo-ayuda {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 30;
+  width: 300px;
+  padding: 10px 12px;
+  border-radius: var(--radio-chico);
+  background: var(--color-texto);
+  color: var(--color-superficie);
+  font-size: 13px;
+  line-height: 1.45;
+  box-shadow: var(--sombra-modal);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-3px);
+  transition: opacity 0.12s ease, transform 0.12s ease, visibility 0.12s;
+  pointer-events: none;
+}
+/* Flechita del globo. */
+.globo-ayuda::before {
+  content: "";
+  position: absolute;
+  top: -5px;
+  left: 18px;
+  width: 10px;
+  height: 10px;
+  background: inherit;
+  transform: rotate(45deg);
+}
+.check-con-ayuda:hover .globo-ayuda,
+.check-con-ayuda:focus-within .globo-ayuda,
+.check-con-ayuda.abierto .globo-ayuda {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+}
+
+@media (hover: none) {
+  .check-con-ayuda:hover .globo-ayuda,
+  .check-con-ayuda:focus-within .globo-ayuda { opacity: 0; visibility: hidden; }
+  .check-con-ayuda.abierto .globo-ayuda { opacity: 1; visibility: visible; transform: none; }
+}
+
+/* =====================================================================
+   CÁMARA
+===================================================================== */
+.scanner-fila { display: flex; align-items: center; gap: 8px; }
+
+/* Los botones de cámara sólo aparecen en pantallas táctiles o chicas: en
+   la computadora del hospital se usa el lector USB. */
+.btn-camara, .btn-camara-form { display: none; }
+@media (hover: none), (max-width: 900px) {
+  .btn-camara, .btn-camara-form { display: inline-flex; }
+}
+.btn-camara { height: 42px; padding: 0 14px; }
+
+.campo-con-boton { display: flex; gap: 8px; }
+.campo-con-boton input { flex: 1; min-width: 0; }
+.btn-camara-form { width: 44px; min-height: 0; padding: 0; flex-shrink: 0; }
+
+/* Pantalla completa de la cámara. */
+body.camara-abierta { overflow: hidden; }
+.camara-capa {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.camara-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* Recuadro guía: oscurece todo menos la zona donde poner el código. */
+.camara-marco {
+  position: absolute;
+  left: 50%;
+  top: 45%;
+  width: min(78vw, 360px);
+  height: min(52vw, 240px);
+  transform: translate(-50%, -50%);
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-radius: 14px;
+  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.45);
+}
+.camara-arriba, .camara-abajo {
+  position: relative;
+  z-index: 1;
+  padding: 18px 20px;
+  color: #fff;
+  text-align: center;
+}
+.camara-arriba { padding-top: calc(18px + env(safe-area-inset-top)); }
+.camara-abajo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom));
+}
+.camara-texto { margin: 0; font-size: 16px; font-weight: 500; }
+.camara-estado { margin: 0; font-size: 14px; color: rgba(255, 255, 255, 0.8); max-width: 360px; }
+.camara-error .camara-estado {
+  color: #fff;
+  background: rgba(180, 35, 24, 0.9);
+  padding: 10px 14px;
+  border-radius: var(--radio-chico);
+}
+.camara-cancelar { min-width: 180px; min-height: 48px; font-size: 16px; }
+
+/* Etiquetas que sólo tienen sentido en la vista de celular. */
+.solo-movil { display: none; }
+
+/* =====================================================================
+   CELULAR: INTERFAZ EN TARJETAS
+   ---------------------------------------------------------------------
+   En pantallas chicas, las tablas se convierten en tarjetas que se leen
+   de arriba abajo (sin desplazarse de costado), con los botones grandes
+   para usar con el pulgar.
+===================================================================== */
+@media (max-width: 700px) {
+  .solo-movil { display: inline; }
+
+  /* Campos de 16px: evita que el iPhone haga zoom al tocarlos. */
+  input, select, textarea,
+  .campo input, .campo select,
+  #form-movimiento input, #form-movimiento textarea,
+  .barra-acciones input[type="search"],
+  .scanner-pill input { font-size: 16px; }
+
+  /* --- Encabezado: en Inventario sólo queda el escáner, fijo arriba --- */
+  body[data-pagina="inventario"] .header-vista h1 { display: none; }
+  .scanner-fila { width: 100%; }
+  .scanner-pill { flex: 1; height: 46px; }
+  .btn-camara { height: 46px; padding: 0 14px; font-size: 15px; }
+
+  /* --- Barra de búsqueda --- */
+  .barra-acciones { gap: 10px; }
+  .barra-acciones input[type="search"] { height: 46px; }
+  .check-con-ayuda { justify-content: flex-start; }
+  .check-dados-baja { min-height: 36px; font-size: 14px; }
+  .globo-ayuda { width: min(320px, calc(100vw - 28px)); }
+
+  /* --- "Agregar medicamento": botón redondo flotante, a mano del pulgar --- */
+  #btn-abrir-alta {
+    position: fixed;
+    right: 16px;
+    bottom: calc(78px + env(safe-area-inset-bottom));
+    z-index: 40;
+    width: 58px;
+    height: 58px;
+    padding: 0;
+    border-radius: 50%;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+  }
+  #btn-abrir-alta .icono { width: 26px; height: 26px; }
+  #btn-abrir-alta .texto-boton { display: none; }
+  /* Espacio extra al final para que el botón flotante no tape la última tarjeta. */
+  body[data-pagina="inventario"] .contenido { padding-bottom: calc(150px + env(safe-area-inset-bottom)); }
+
+  /* --- Inventario en tarjetas --- */
+  #tabla-medicamentos,
+  #tabla-medicamentos tbody { display: block; min-width: 0; }
+  #tabla-medicamentos thead { display: none; }
+  #tabla-medicamentos tr {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 10px;
+    row-gap: 6px;
     padding: 14px 14px;
-    gap: 10px;
+    border-bottom: 1px solid var(--color-borde);
   }
-  .header-vista h1 {
-    font-size: 16.5px;
-  }
-  .scanner-pill {
-    width: 100%;
-    min-width: 0;
-  }
-  .scanner-mensaje {
-    margin: 8px 14px 0;
-    padding: 8px 12px;
-  }
+  #tabla-medicamentos tbody tr:last-child { border-bottom: none; }
+  #tabla-medicamentos td { display: block; padding: 0; border: none; min-width: 0; }
+  #tabla-medicamentos td:first-child { box-shadow: none; }
+  #tabla-medicamentos tr:hover { background: inherit; }
 
-  .tarjetas-resumen {
-    gap: 10px;
+  #tabla-medicamentos .c-cat { display: none; }
+  #tabla-medicamentos .c-codigo { display: none; }
+  /* Si el código guardado es un link de QR, el aviso sí se muestra. */
+  #tabla-medicamentos .c-codigo:has(.codigo-invalido) { display: block; grid-column: 1 / -1; grid-row: 4; }
+  /* "Activo" en cada tarjeta es ruido: sólo se muestra si NO está activo. */
+  #tabla-medicamentos .c-estado:has(.chip-activo) { display: none; }
+
+  /* Fila 1: nombre | stock. Fila 2: lote | vencimiento | estado. Fila 3: botones. */
+  #tabla-medicamentos .c-nombre { grid-column: 1 / 3; grid-row: 1; }
+  #tabla-medicamentos .c-stock { grid-column: 3; grid-row: 1; text-align: right; }
+  #tabla-medicamentos .c-lote { grid-column: 1; grid-row: 2; }
+  #tabla-medicamentos .c-venc { grid-column: 2; grid-row: 2; font-size: 13.5px; }
+  #tabla-medicamentos .c-estado { grid-column: 3; grid-row: 2; justify-self: end; }
+  #tabla-medicamentos .c-acciones { grid-column: 1 / -1; grid-row: 3; margin-top: 6px; }
+
+  #tabla-medicamentos .nombre-medicamento strong { font-size: 16px; }
+  #tabla-medicamentos .nombre-medicamento span { font-size: 13px; }
+  #tabla-medicamentos .stock-cantidad { font-size: 19px; }
+  #tabla-medicamentos .chip-stock-bajo { padding: 3px 10px; }
+  #tabla-medicamentos .fecha-venc { display: inline; margin-right: 6px; }
+  #tabla-medicamentos .fecha-venc + .chip { margin-top: 0; }
+  #tabla-medicamentos .numero-lote { font-size: 14px; }
+
+  /* Botones de cada lote: Retirar e Ingresar grandes, historial y editar al costado. */
+  #tabla-medicamentos .acciones-fila {
+    display: grid;
+    grid-template-columns: 1fr 1fr 46px 46px;
+    gap: 8px;
   }
-  .tarjeta-resumen {
+  #tabla-medicamentos .btn-circular {
+    width: auto;
+    height: 46px;
+    min-height: 46px;
+    gap: 6px;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  #tabla-medicamentos .btn-circular .icono { width: 18px; height: 18px; }
+
+  /* Tarjeta "producto" (agrupa lotes). */
+  #tabla-medicamentos .fila-producto .c-estado { display: none; }
+  #tabla-medicamentos .fila-producto .c-acciones { grid-column: 3; grid-row: 2; margin-top: 0; }
+  #tabla-medicamentos .fila-producto .c-venc { grid-column: 2; }
+  #tabla-medicamentos .fila-producto .acciones-fila { display: flex; }
+  #tabla-medicamentos .fila-producto .btn-chico { min-height: 38px; padding: 0 12px; font-size: 14px; }
+  #tabla-medicamentos .celda-producto { align-items: center; }
+  #tabla-medicamentos .btn-expandir { width: 30px; height: 30px; }
+  #tabla-medicamentos .fila-producto.expandida { box-shadow: inset 4px 0 0 var(--color-primario); }
+
+  /* Lotes desplegados: "bandeja" con sangría y línea de color. */
+  #tabla-medicamentos .fila-lote-hija {
+    padding-left: 22px;
+    box-shadow: inset 4px 0 0 var(--color-primario);
+  }
+  #tabla-medicamentos .fila-lote-hija.ultimo-lote { border-bottom: 2px solid var(--color-borde-fuerte); }
+  #tabla-medicamentos .fila-lote-hija .c-lote { grid-column: 1; grid-row: 1; }
+  #tabla-medicamentos .fila-lote-hija .c-nombre { grid-column: 2; grid-row: 1; }
+  #tabla-medicamentos .fila-lote-hija .c-venc { grid-column: 1 / 3; grid-row: 2; }
+  #tabla-medicamentos .fila-lote-hija .lote-indent { padding-left: 0; min-height: 0; }
+  #tabla-medicamentos .fila-lote-hija .lote-indent::before,
+  #tabla-medicamentos .fila-lote-hija .lote-indent::after { display: none; }
+  #tabla-medicamentos .fila-lote-hija .c-cat { display: none; }
+
+  /* --- Historial (vista general) en tarjetas ---
+     Columnas: 1 fecha, 2 usuario, 3 medicamento, 4 tipo, 5 cantidad, 6 observaciones */
+  .tabla-historial, .tabla-historial tbody { display: block; min-width: 0; }
+  .tabla-historial thead { display: none; }
+  .tabla-historial tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: 4px;
+    column-gap: 12px;
     padding: 14px;
-    gap: 10px;
+    border-bottom: 1px solid var(--color-borde);
   }
-  .resumen-valor {
-    font-size: 20px;
-  }
+  .tabla-historial td { display: block; padding: 0 !important; border: none !important; white-space: normal !important; }
+  .tabla-historial td:nth-child(4) { grid-column: 1; grid-row: 1; }
+  .tabla-historial td:nth-child(5) { grid-column: 2; grid-row: 1; font-size: 18px; font-weight: 600; text-align: right; }
+  .tabla-historial td:nth-child(3) { grid-column: 1 / -1; grid-row: 2; font-weight: 600; font-size: 15.5px; }
+  .tabla-historial td:nth-child(6) { grid-column: 1 / -1; grid-row: 3; font-size: 14px; color: var(--color-texto-secundario); }
+  .tabla-historial td:nth-child(1) { grid-column: 1; grid-row: 4; font-size: 13px; color: var(--color-texto-tenue); }
+  .tabla-historial td:nth-child(2) { grid-column: 2; grid-row: 4; font-size: 13px; color: var(--color-texto-tenue); text-align: right; }
 
-  .barra-acciones {
-    flex-direction: column;
-    align-items: stretch;
+  /* --- Historial de un lote (ventana del inventario) ---
+     Columnas: 1 fecha, 2 usuario, 3 tipo, 4 cantidad, 5 observaciones */
+  .tabla-historial-med, .tabla-historial-med tbody { display: block; min-width: 0; }
+  .tabla-historial-med thead { display: none; }
+  .tabla-historial-med tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: 4px;
+    column-gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--color-borde);
   }
-  .barra-acciones input[type="search"] {
-    width: 100%;
-  }
+  .tabla-historial-med td { display: block; padding: 0; border: none; }
+  .tabla-historial-med td:nth-child(3) { grid-column: 1; grid-row: 1; }
+  .tabla-historial-med td:nth-child(4) { grid-column: 2; grid-row: 1; font-size: 18px; font-weight: 600; text-align: right; }
+  .tabla-historial-med td:nth-child(5) { grid-column: 1 / -1; grid-row: 2; font-size: 14px; color: var(--color-texto-secundario); }
+  .tabla-historial-med td:nth-child(1) { grid-column: 1; grid-row: 3; font-size: 13px; color: var(--color-texto-tenue); }
+  .tabla-historial-med td:nth-child(2) { grid-column: 2; grid-row: 3; font-size: 13px; color: var(--color-texto-tenue); text-align: right; }
+  .tabla-historial-med td.texto-vacio { grid-column: 1 / -1; }
 
-  /* La tabla sigue permitiendo scroll horizontal con el dedo: es más
-     práctico en un celular que aplastar columnas hasta hacerlas
-     ilegibles. */
-  .tabla-wrapper {
-    -webkit-overflow-scrolling: touch;
+  /* --- Usuarios en tarjetas ---
+     Columnas: 1 nombre, 2 email, 3 rol, 4 estado, 5 acciones */
+  .tabla-usuarios, .tabla-usuarios tbody { display: block; min-width: 0; }
+  .tabla-usuarios thead { display: none; }
+  .tabla-usuarios tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 6px 8px;
+    padding: 14px;
+    border-bottom: 1px solid var(--color-borde);
   }
+  .tabla-usuarios td { display: block; padding: 0; border: none; }
+  .tabla-usuarios td:nth-child(1) { grid-column: 1; grid-row: 1; font-weight: 600; font-size: 15.5px; }
+  .tabla-usuarios td:nth-child(3) { grid-column: 2; grid-row: 1; }
+  .tabla-usuarios td:nth-child(4) { grid-column: 3; grid-row: 1; }
+  .tabla-usuarios td:nth-child(2) { grid-column: 1 / -1; grid-row: 2; font-size: 14px; color: var(--color-texto-secundario); overflow-wrap: anywhere; }
+  .tabla td.acciones-fila:not(:empty) { grid-column: 1 / -1; grid-row: 3; display: flex; gap: 8px; margin-top: 6px; text-align: left; }
+  .tabla td.acciones-fila:empty { display: none; }
+  .tabla td.acciones-fila .btn { flex: 1; min-height: 44px; }
+  .tabla td.acciones-fila .btn + .btn { margin-left: 0; }
 
-  .grilla-alertas {
-    gap: 14px;
-  }
-
-  /* Modales: aprovechan mejor el ancho y bajan el padding superior. */
-  .modal-fondo {
-    padding: 16px 10px calc(90px + env(safe-area-inset-bottom));
-    align-items: flex-start;
-  }
+  /* --- Ventanas (alta, movimiento, historial): se abren desde abajo,
+         como una hoja, con los botones siempre a la vista --- */
+  .modal-fondo { padding: 0; align-items: flex-end; }
   .modal-caja {
     max-width: 100%;
-    border-radius: 14px;
+    max-height: 94vh;
+    overflow-y: auto;
+    border-radius: 16px 16px 0 0;
+    border-bottom: none;
   }
-  .form-grid, #form-movimiento {
-    padding: 16px;
+  .modal-header { position: sticky; top: 0; z-index: 2; background: var(--color-superficie); padding: 14px 16px; }
+  .modal-acciones {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    background: var(--color-superficie);
+    margin: 8px -16px -16px;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--color-borde);
   }
+  .modal-acciones .btn { flex: 1; min-height: 48px; font-size: 16px; }
+  .form-grid { padding-bottom: 16px; }
+  .mov-tipo-boton, .mov-pr-boton { min-height: 44px; font-size: 15px; }
+  #mov-cantidad { font-size: 22px; font-weight: 600; height: 54px; text-align: center; }
+  .campo input, .campo select { min-height: 46px; }
+  .btn-camara-form { width: 48px; }
+}
 
-  .toast {
-    bottom: calc(76px + env(safe-area-inset-bottom));
-    font-size: 13.5px;
-    padding: 12px 18px;
+/* =====================================================================
+   CELULAR: tarjetas que se acomodan a cualquier ancho
+   ---------------------------------------------------------------------
+   Reemplaza el acomodo en columnas fijas de más arriba: cada tarjeta es
+   una fila "flexible" donde los datos pasan al renglón siguiente cuando
+   no entran, así nada se pisa ni se corta, ni en celulares angostos.
+     Renglón 1: nombre ............ stock
+     Renglón 2: lote · vencimiento · estado (bajan si no entran)
+     Renglón 3: botones
+===================================================================== */
+@media (max-width: 700px) {
+  #tabla-medicamentos tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
   }
+  /* Corte de renglón invisible entre el renglón 1 y el 2. */
+  #tabla-medicamentos tr::after { content: ""; order: 3; flex-basis: 100%; height: 0; }
+
+  #tabla-medicamentos .c-nombre { order: 1; flex: 1 1 0; min-width: 0; overflow-wrap: anywhere; }
+  #tabla-medicamentos .c-stock { order: 2; flex: 0 0 auto; align-self: flex-start; }
+  #tabla-medicamentos .c-lote { order: 4; flex: 0 0 auto; }
+  #tabla-medicamentos .c-venc { order: 5; flex: 0 1 auto; min-width: 0; }
+  #tabla-medicamentos .c-estado { order: 6; flex: 0 0 auto; margin-left: auto; }
+  #tabla-medicamentos .c-acciones { order: 8; flex: 1 1 100%; margin-top: 4px; }
+  #tabla-medicamentos .c-codigo:has(.codigo-invalido) { order: 9; flex: 1 1 100%; }
+
+  /* Stock: número grande y la unidad abajo, chiquita (ocupa menos ancho). */
+  #tabla-medicamentos .c-stock .chip { flex-direction: column; align-items: flex-end; gap: 0; line-height: 1.15; }
+  #tabla-medicamentos .c-stock .chip-stock-bajo { padding: 4px 9px; border-radius: 8px; }
+  #tabla-medicamentos .c-stock .stock-unidad { font-size: 12px; }
+
+  /* La fecha y su aviso pueden bajar de renglón. */
+  #tabla-medicamentos .c-venc { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+  #tabla-medicamentos .fecha-venc { white-space: normal; margin-right: 0; }
+
+  /* Producto que agrupa lotes: "+ Lote" a la derecha del renglón 2. */
+  #tabla-medicamentos .fila-producto .c-acciones { order: 7; flex: 0 0 auto; margin: 0 0 0 auto; }
+
+  /* Lote dentro de la bandeja: el número de lote encabeza la tarjeta. */
+  #tabla-medicamentos .fila-lote-hija .c-lote { order: 1; flex: 0 0 auto; }
+  #tabla-medicamentos .fila-lote-hija .c-nombre { order: 1; flex: 1 1 0; }
+  #tabla-medicamentos .fila-lote-hija .c-venc { order: 4; }
+
+  /* Botones: nunca más anchos que la tarjeta. */
+  #tabla-medicamentos .acciones-fila { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 46px 46px; }
+  #tabla-medicamentos .btn-circular { min-width: 0; overflow: hidden; }
+
+  /* Menú de abajo: los textos se achican antes que salirse de la pantalla. */
+  .nav-item { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+}
+
+/* Celulares muy angostos: botones sólo con ícono y escáner sin la palabra
+   "Cámara", para que todo entre. */
+@media (max-width: 360px) {
+  #tabla-medicamentos .btn-circular .solo-movil { display: none; }
+  #tabla-medicamentos .acciones-fila { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .btn-camara span { display: none; }
+  .btn-camara { padding: 0 12px; }
+  .nav-item { font-size: 10px; }
+  .resumen-etiqueta { font-size: 11px; }
+  .resumen-valor { font-size: 19px; }
+  .tarjeta-resumen { padding: 8px 10px; }
+}
+
+@media (max-width: 700px) {
+  /* Barra de arriba: el nombre se recorta antes que empujar los botones
+     fuera de la pantalla. */
+  .sidebar-marca { flex: 1 1 auto; min-width: 0; }
+  .marca-texto { min-width: 0; }
+  .marca-texto strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sidebar-usuario { flex: 0 0 auto; }
+  #tabla-medicamentos .etiqueta-fefo { white-space: normal; }
+}
+@media (max-width: 300px) {
+  .marca-texto { display: none; }
 }

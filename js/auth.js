@@ -229,6 +229,9 @@ function mostrarPantallaLogin() {
 
 // Cuenta logueada pero todavía no habilitada (o rechazada): no muestra la
 // app, solo un mensaje y el botón para cerrar sesión.
+const ICONO_PENDIENTE = '<svg class="icono" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+const ICONO_RECHAZADA = '<svg class="icono" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m5.7 5.7 12.6 12.6"/></svg>';
+
 function mostrarPantallaPendiente(estadoCuenta) {
   document.getElementById('pantalla-login').classList.add('oculto');
   document.getElementById('pantalla-pendiente').classList.remove('oculto');
@@ -238,11 +241,11 @@ function mostrarPantallaPendiente(estadoCuenta) {
   const texto = document.getElementById('pendiente-texto');
 
   if (estadoCuenta === 'rechazado') {
-    icono.textContent = '🚫';
+    icono.innerHTML = ICONO_RECHAZADA;
     titulo.textContent = 'Cuenta rechazada';
     texto.textContent = 'Un administrador rechazó el acceso de esta cuenta. Si pensás que es un error, hablalo con quien administra el sistema.';
   } else {
-    icono.textContent = '⏳';
+    icono.innerHTML = ICONO_PENDIENTE;
     titulo.textContent = 'Cuenta pendiente de aprobación';
     texto.textContent = 'Tu cuenta ya se creó, pero todavía no fue habilitada por un administrador. Pedile a alguien con acceso de administrador que te apruebe desde "Usuarios", y volvé a entrar.';
   }

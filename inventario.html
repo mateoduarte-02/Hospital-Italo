@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Inventario - Hospital Dr. Luis Mario Marini</title>
 
+  <!-- Aplica el modo claro/oscuro antes de dibujar la página (sin "flash") -->
+  <script src="js/tema-inicial.js"></script>
   <link rel="stylesheet" href="style.css" />
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -30,35 +32,47 @@
                stock sin tener que entrar a buscarlo. -->
           <div class="tarjetas-resumen">
             <div class="tarjeta-resumen">
-              <span class="resumen-icono resumen-icono-info">📦</span>
+              <span class="resumen-icono resumen-icono-info"><svg class="icono" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5"/><path d="M12 13v8"/></svg></span>
               <div>
-                <span class="resumen-etiqueta">Medicamentos registrados</span>
+                <span class="resumen-etiqueta">Lotes activos</span>
                 <span class="resumen-valor" id="resumen-total">0</span>
               </div>
             </div>
             <a class="tarjeta-resumen tarjeta-resumen-link" href="alertas.html#alertas-stock">
-              <span class="resumen-icono resumen-icono-alerta">⚠️</span>
+              <span class="resumen-icono resumen-icono-alerta"><svg class="icono" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m22 17-8.5-8.5-5 5L2 7"/><path d="M16 17h6v-6"/></svg></span>
               <div>
-                <span class="resumen-etiqueta">Stock bajo</span>
+                <span class="resumen-etiqueta">Lotes con stock bajo</span>
                 <span class="resumen-valor" id="resumen-stock-bajo">0</span>
               </div>
             </a>
             <a class="tarjeta-resumen tarjeta-resumen-link" href="alertas.html#alertas-vencimiento">
-              <span class="resumen-icono resumen-icono-critico">⏳</span>
+              <span class="resumen-icono resumen-icono-critico"><svg class="icono" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="20" height="20" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg></span>
               <div>
-                <span class="resumen-etiqueta">Próximos a vencer / vencidos</span>
+                <span class="resumen-etiqueta">Vencidos o por vencer</span>
                 <span class="resumen-valor" id="resumen-vencimiento">0</span>
               </div>
             </a>
           </div>
 
           <div class="barra-acciones">
-            <input type="search" id="buscador-inventario" placeholder="Buscar por nombre, lote o código de barras..." />
-            <label class="check-dados-baja">
-              <input type="checkbox" id="check-dados-baja" />
-              Mostrar dados de baja
-            </label>
-            <button id="btn-abrir-alta" class="btn btn-primario">+ Agregar medicamento</button>
+            <input type="search" id="buscador-inventario" placeholder="Buscar por nombre, lote o código" aria-label="Buscar en el inventario" />
+            <!-- Casilla con ayuda: el globo con la explicación aparece al
+                 pasar el mouse, al llegar con el teclado o al tocar la (i)
+                 en el celular. -->
+            <div class="check-con-ayuda">
+              <label class="check-dados-baja" aria-describedby="ayuda-dados-baja">
+                <input type="checkbox" id="check-dados-baja" />
+                Mostrar dados de baja
+              </label>
+              <button type="button" class="btn-ayuda" aria-label="¿Qué son los dados de baja?" aria-describedby="ayuda-dados-baja"><svg class="icono" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></button>
+              <span class="globo-ayuda" role="tooltip" id="ayuda-dados-baja">
+                Muestra también los lotes que ya no están en uso: los que se
+                quedaron sin stock (un retiro los dejó en 0) o que alguien marcó
+                como "Dado de baja". Normalmente están ocultos para que la lista
+                quede limpia; no se borran y conservan su historial.
+              </span>
+            </div>
+            <button id="btn-abrir-alta" class="btn btn-primario" aria-label="Agregar medicamento"><svg class="icono" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg> <span class="texto-boton">Agregar medicamento</span></button>
           </div>
 
           <div class="tabla-wrapper">
@@ -68,18 +82,18 @@
                   <th>Medicamento</th>
                   <th>Lote</th>
                   <th>Categoría</th>
-                  <th>Stock actual</th>
+                  <th>Stock</th>
                   <th>Vencimiento</th>
                   <th>Estado</th>
                   <th>Código</th>
-                  <th>Acciones</th>
+                  <th><span class="oculto-visual">Acciones</span></th>
                 </tr>
               </thead>
               <tbody id="cuerpo-tabla-medicamentos">
                 <!-- Las filas se generan dinámicamente desde js/inventario.js -->
               </tbody>
             </table>
-            <p id="inventario-vacio" class="texto-vacio oculto">No hay medicamentos cargados todavía.</p>
+            <p id="inventario-vacio" class="texto-vacio oculto">No hay medicamentos que coincidan. Probá con otra búsqueda o tocá "Agregar medicamento".</p>
           </div>
         </section>
       </main>
@@ -94,7 +108,7 @@
     <div class="modal-caja">
       <div class="modal-header">
         <h2 id="titulo-modal-medicamento">Agregar medicamento</h2>
-        <button class="btn-cerrar" data-cerrar-modal="modal-medicamento">✕</button>
+        <button class="btn-cerrar" data-cerrar-modal="modal-medicamento" aria-label="Cerrar"><svg class="icono" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
       </div>
 
       <form id="form-medicamento" class="form-grid">
@@ -102,7 +116,10 @@
 
         <div class="campo">
           <label for="med-codigo-barras">Código de barras / QR</label>
-          <input type="text" id="med-codigo-barras" placeholder="Escanear o escribir código" />
+          <div class="campo-con-boton">
+            <input type="text" id="med-codigo-barras" placeholder="Escanear o escribir código" />
+            <button type="button" id="btn-camara-formulario" class="btn btn-secundario btn-camara-form" aria-label="Escanear el código con la cámara" title="Escanear con la cámara"><svg class="icono" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3.5"/></svg></button>
+          </div>
         </div>
 
         <div class="campo">
@@ -196,7 +213,7 @@
     <div class="modal-caja modal-chica">
       <div class="modal-header">
         <h2 id="titulo-modal-movimiento">Movimiento de stock</h2>
-        <button class="btn-cerrar" data-cerrar-modal="modal-movimiento">✕</button>
+        <button class="btn-cerrar" data-cerrar-modal="modal-movimiento" aria-label="Cerrar"><svg class="icono" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
       </div>
 
       <form id="form-movimiento">
@@ -207,8 +224,8 @@
         <p class="subtexto">Stock actual: <span id="mov-stock-actual-texto">0</span></p>
 
         <div class="mov-tipo-toggle" role="group" aria-label="Tipo de movimiento">
-          <button type="button" class="mov-tipo-boton" data-tipo="ingreso">⬆️ Ingreso</button>
-          <button type="button" class="mov-tipo-boton" data-tipo="retiro">⬇️ Retiro</button>
+          <button type="button" class="mov-tipo-boton" data-tipo="ingreso"><svg class="icono" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg> Ingreso</button>
+          <button type="button" class="mov-tipo-boton" data-tipo="retiro"><svg class="icono" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21V9"/><path d="m7 14 5-5 5 5"/><path d="M5 3h14"/></svg> Retiro</button>
         </div>
 
         <label for="mov-cantidad">Cantidad *</label>
@@ -254,10 +271,10 @@
     <div class="modal-caja">
       <div class="modal-header">
         <h2 id="titulo-modal-historial">Historial del medicamento</h2>
-        <button class="btn-cerrar" data-cerrar-modal="modal-historial">✕</button>
+        <button class="btn-cerrar" data-cerrar-modal="modal-historial" aria-label="Cerrar"><svg class="icono" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
       </div>
       <div class="tabla-wrapper">
-        <table class="tabla">
+        <table class="tabla tabla-historial-med">
           <thead>
             <tr>
               <th>Fecha y hora</th>

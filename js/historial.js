@@ -3,6 +3,7 @@
 // =========================================================================
 import { estado } from './estado.js';
 import { escapeHtml, formatearFechaHora, abrirModal } from './utils.js';
+import { icono } from './iconos.js';
 
 export function abrirModalHistorial(medicamento) {
   document.getElementById('titulo-modal-historial').textContent =
@@ -36,14 +37,14 @@ export function abrirModalHistorial(medicamento) {
 // un vistazo sin tener que leer la palabra (ver .chip-tipo-* en style.css).
 export function etiquetaTipoMovimiento(tipo) {
   const info = {
-    alta: { icono: '🆕', texto: 'Alta' },
-    ingreso: { icono: '⬆️', texto: 'Ingreso' },
-    retiro: { icono: '⬇️', texto: 'Retiro' },
-    ajuste: { icono: '✏️', texto: 'Ajuste' },
-    baja: { icono: '🚫', texto: 'Baja' },
-  }[tipo] || { icono: '•', texto: tipo };
+    alta: { icono: 'alta', texto: 'Alta' },
+    ingreso: { icono: 'ingreso', texto: 'Ingreso' },
+    retiro: { icono: 'retiro', texto: 'Retiro' },
+    ajuste: { icono: 'ajuste', texto: 'Ajuste' },
+    baja: { icono: 'baja', texto: 'Baja' },
+  }[tipo] || { icono: '', texto: tipo };
 
-  return `<span class="chip-tipo chip-tipo-${tipo}"><span class="chip-tipo-icono">${info.icono}</span>${info.texto}</span>`;
+  return `<span class="chip-tipo chip-tipo-${tipo}"><span class="chip-tipo-icono">${icono(info.icono, 15)}</span>${info.texto}</span>`;
 }
 
 // Todo retiro registrado desde que existe la receta (PR) guarda al

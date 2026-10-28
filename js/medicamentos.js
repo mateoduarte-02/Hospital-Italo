@@ -7,12 +7,75 @@ import { abrirModal, cerrarModal, mostrarToast, fechaDeHoyISO } from './utils.js
 import { cargarInventario } from './datos.js';
 import { registrarMovimiento } from './movimientos.js';
 import { actualizarBadgesSidebar } from './shell.js';
+import { parsearEscaneo, MENSAJE_QR_LINK } from './scanner.js';
+import { escanearConCamara } from './camara.js';
 
 // Este módulo se importa (indirectamente, vía datos.js -> inventario.js)
 // desde todas las páginas de la app, aunque solo se usa de verdad en
 // inventario.html — por eso los guards: en cualquier otra página, este
 // botón y este formulario no existen en el DOM.
 document.getElementById('btn-abrir-alta')?.addEventListener('click', () => abrirModalMedicamento(null));
+
+// Si se escanea DIRECTO en el campo "Código de barras" del formulario (en
+// vez del campo de escaneo de arriba), el lector escribe el código 2D
+// completo, ej. ")01=07798369790702)10=05271)17=280731)90=RAHEA001".
+// Ese texto incluye el número de serie, que es distinto en CADA caja: si
+// se guardara así, cada caja quedaría como un producto distinto y después
+// el escáner nunca lo encontraría. Por eso acá también lo interpretamos:
+// dejamos sólo el código del producto y completamos lote y vencimiento.
+const inputCodigoFormulario = document.getElementById('med-codigo-barras');
+inputCodigoFormulario?.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  e.preventDefault(); // el lector manda un Enter al final: que no envíe el formulario
+  normalizarCodigoDelFormulario({ vaciarSiEsLink: true });
+});
+inputCodigoFormulario?.addEventListener('change', () => normalizarCodigoDelFormulario());
+
+// Botón de cámara al lado del campo (se ve en el celular): lee el código,
+// lo interpreta igual que el lector USB y, si es un producto nuevo que ya
+// está en el catálogo, completa sus datos.
+document.getElementById('btn-camara-formulario')?.addEventListener('click', async () => {
+  const texto = await escanearConCamara();
+  if (!texto) return;
+  const campo = document.getElementById('med-codigo-barras');
+  campo.value = texto;
+  document.getElementById('medicamento-error').classList.add('oculto');
+  if (normalizarCodigoDelFormulario({ vaciarSiEsLink: true })) return;
+
+  const esAlta = !document.getElementById('med-id').value;
+  const sinNombre = !document.getElementById('med-nombre-generico').value.trim();
+  if (esAlta && sinNombre && campo.value && await completarDesdeCatalogo(campo.value)) {
+    mostrarToast('Producto encontrado en el catálogo: datos completados. Revisalos antes de guardar.');
+  }
+});
+
+// Devuelve true si el campo tiene un QR-link (y entonces no hay que guardar).
+// Sólo se vacía el campo cuando el link entró por el lector (Enter), así
+// el próximo escaneo no se pega al final del link; si se vaciara también
+// al tocar "Guardar", se terminaría guardando el medicamento sin código.
+function normalizarCodigoDelFormulario({ vaciarSiEsLink = false } = {}) {
+  const campo = document.getElementById('med-codigo-barras');
+  const analisis = parsearEscaneo(campo.value.trim());
+
+  // QR del laboratorio (un link): no sirve como código, se borra y se avisa.
+  if (analisis.esURL) {
+    if (vaciarSiEsLink) campo.value = '';
+    const errorEl = document.getElementById('medicamento-error');
+    errorEl.textContent = MENSAJE_QR_LINK;
+    errorEl.classList.remove('oculto');
+    return true;
+  }
+
+  if (!analisis.esGS1) return false;
+
+  campo.value = analisis.codigoBarras;
+  const campoLote = document.getElementById('med-lote');
+  const campoVencimiento = document.getElementById('med-fecha-vencimiento');
+  if (analisis.lote && !campoLote.value) campoLote.value = analisis.lote;
+  if (analisis.fechaVencimiento && !campoVencimiento.value) campoVencimiento.value = analisis.fechaVencimiento;
+  mostrarToast('Código 2D leído: se completaron código, lote y vencimiento. Revisalos antes de guardar.');
+  return false;
+}
 
 // Abre el modal de medicamento. Si se pasa un medicamento existente, lo
 // abre en modo "edición" con los campos ya completados; si se pasa null,
@@ -24,6 +87,7 @@ export async function abrirModalMedicamento(medicamento, codigoPrecargado, datos
   const form = document.getElementById('form-medicamento');
   form.reset();
   document.getElementById('medicamento-error').classList.add('oculto');
+  advertenciaYaMostrada = null;
 
   document.getElementById('titulo-modal-medicamento').textContent =
     medicamento ? 'Editar medicamento' : 'Agregar medicamento';
@@ -71,21 +135,7 @@ export async function abrirModalMedicamento(medicamento, codigoPrecargado, datos
   // no del producto en general.
   let avisoCatalogo = false;
   if (!medicamento && codigoPrecargado) {
-    const { data: catalogado } = await supabaseClient
-      .from('catalogo_medicamentos')
-      .select('*')
-      .eq('codigo_barras', codigoPrecargado)
-      .maybeSingle();
-
-    if (catalogado) {
-      document.getElementById('med-nombre-generico').value = catalogado.nombre_generico || '';
-      document.getElementById('med-nombre-comercial').value = catalogado.nombre_comercial || '';
-      document.getElementById('med-categoria').value = catalogado.categoria || '';
-      document.getElementById('med-unidad').value = catalogado.unidad || '';
-      document.getElementById('med-condicion').value = catalogado.condicion_almacenamiento || 'ambiente';
-      document.getElementById('med-proveedor').value = catalogado.proveedor || '';
-      avisoCatalogo = true;
-    }
+    avisoCatalogo = await completarDesdeCatalogo(codigoPrecargado);
   }
 
   // Un solo mensaje, resumiendo qué se autocompletó y pidiendo revisarlo
@@ -99,6 +149,26 @@ export async function abrirModalMedicamento(medicamento, codigoPrecargado, datos
   }
 }
 
+// Busca el producto en el catálogo por su código y, si existe, completa
+// sus datos fijos (nombre, categoría, unidad...). Devuelve true si lo
+// encontró.
+async function completarDesdeCatalogo(codigo) {
+  const { data: catalogado } = await supabaseClient
+    .from('catalogo_medicamentos')
+    .select('*')
+    .eq('codigo_barras', codigo)
+    .maybeSingle();
+  if (!catalogado) return false;
+
+  document.getElementById('med-nombre-generico').value = catalogado.nombre_generico || '';
+  document.getElementById('med-nombre-comercial').value = catalogado.nombre_comercial || '';
+  document.getElementById('med-categoria').value = catalogado.categoria || '';
+  document.getElementById('med-unidad').value = catalogado.unidad || '';
+  document.getElementById('med-condicion').value = catalogado.condicion_almacenamiento || 'ambiente';
+  document.getElementById('med-proveedor').value = catalogado.proveedor || '';
+  return true;
+}
+
 // Evita el error más común al cargar medicamentos "a mano": que un mismo
 // producto (ej. "Polivitaminico") termine repartido en dos registros
 // distintos con nombres o códigos de barras que no coinciden entre sí.
@@ -107,14 +177,22 @@ export async function abrirModalMedicamento(medicamento, codigoPrecargado, datos
 //   - si el código de barras ya está usado por otro nombre, es un
 //     conflicto (¿es el mismo producto con el nombre mal tipeado, o un
 //     código repetido por error?).
-//   - si el nombre ya existe pero con otro código de barras, también es
-//     un conflicto (probablemente el mismo producto, cargado de nuevo sin
-//     usar el código que ya tenía).
-// En ambos casos se bloquea el guardado con un mensaje explicando qué
+//   - si el nombre genérico ya existe pero con otro código de barras,
+//     NO se bloquea: es normal tener la misma droga en distintas marcas
+//     o presentaciones (ej. amoxicilina de distintos laboratorios, que
+//     llegan por donaciones), y cada una tiene su propio código. Sólo se
+//     muestra una ADVERTENCIA la primera vez, por si en realidad es el
+//     mismo producto cargado de nuevo sin usar su código; tocando
+//     "Guardar" otra vez se confirma y se guarda igual.
+// El primer caso sí bloquea el guardado con un mensaje explicando qué
 // registro ya existe, en vez de dejar crear el duplicado silenciosamente.
 // Esto es una validación de la app, no un constraint de la base de datos:
 // no reemplaza agregar una restricción real en schema.sql si se quiere
 // una garantía más fuerte.
+// Guarda la advertencia que ya se le mostró al usuario para estos mismos
+// datos, así el segundo clic en "Guardar" cuenta como confirmación.
+let advertenciaYaMostrada = null;
+
 function buscarConflictoDeProducto(datos, idActual) {
   const nombreNuevo = datos.nombre_generico.trim().toLowerCase();
   const otros = estado.medicamentos.filter((m) => m.id !== idActual);
@@ -131,7 +209,11 @@ function buscarConflictoDeProducto(datos, idActual) {
     (m.codigo_barras || null) !== (datos.codigo_barras || null)
   );
   if (mismoNombreOtroCodigo) {
-    return `Ya existe un producto llamado "${mismoNombreOtroCodigo.nombre_generico}" con el código de barras "${mismoNombreOtroCodigo.codigo_barras || 'sin código'}". Si es el mismo producto, usá ese mismo código en vez de uno nuevo (así queda como un lote más, no como un producto aparte).`;
+    const clave = `${nombreNuevo}|${datos.codigo_barras || ''}|${(datos.nombre_comercial || '').toLowerCase()}`;
+    if (advertenciaYaMostrada === clave) return null; // segundo clic: confirmado
+    advertenciaYaMostrada = clave;
+    const marcaExistente = mismoNombreOtroCodigo.nombre_comercial ? ` (${mismoNombreOtroCodigo.nombre_comercial})` : '';
+    return `Atención: ya existe "${mismoNombreOtroCodigo.nombre_generico}"${marcaExistente} con el código "${mismoNombreOtroCodigo.codigo_barras || 'sin código'}". Si es otra marca o presentación, completá el nombre comercial y tocá "Guardar" de nuevo para confirmar. Si es el mismo producto, usá ese mismo código para que quede como un lote más.`;
   }
 
   return null;
@@ -141,6 +223,10 @@ document.getElementById('form-medicamento')?.addEventListener('submit', async (e
   e.preventDefault();
   const errorEl = document.getElementById('medicamento-error');
   errorEl.classList.add('oculto');
+
+  // Por las dudas, si quedó un código 2D completo en el campo, se
+  // interpreta antes de guardar (ver normalizarCodigoDelFormulario).
+  if (normalizarCodigoDelFormulario()) return; // era un QR-link: no se guarda
 
   const id = document.getElementById('med-id').value;
   const esNuevo = !id;

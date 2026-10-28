@@ -51,7 +51,7 @@ export async function hayConexionConLaBase(tiempoMaximoMs = 8000) {
 export function mostrarPantallaSinConexion() {
   document.body.innerHTML = `
     <div class="aviso-conexion" role="alert">
-      <span class="aviso-conexion-icono" aria-hidden="true">🔌</span>
+      <span class="aviso-conexion-icono" aria-hidden="true"><svg class="icono" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8z"/></svg></span>
       <h1>Sin conexión con la base de datos</h1>
       <p>${MENSAJE_SIN_CONEXION}</p>
       <button type="button" class="btn btn-primario" onclick="window.location.reload()">Reintentar</button>

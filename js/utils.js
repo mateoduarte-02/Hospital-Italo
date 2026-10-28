@@ -29,7 +29,7 @@ document.querySelectorAll('.modal-fondo').forEach((fondo) => {
 let toastTimeout = null;
 export function mostrarToast(texto, tipo = 'exito') {
   const toast = document.getElementById('toast');
-  toast.textContent = (tipo === 'exito' ? '✔ ' : '✘ ') + texto;
+  toast.textContent = texto; // el color del borde ya indica si salió bien o mal
   toast.className = 'toast ' + tipo;
   clearTimeout(toastTimeout);
   toastTimeout = setTimeout(() => toast.classList.add('oculto'), 2800);
