@@ -3,7 +3,7 @@
 // =========================================================================
 import { supabaseClient } from './supabase-client.js';
 import { estado } from './estado.js';
-import { abrirModal, cerrarModal, mostrarToast, fechaDeHoyISO } from './utils.js';
+import { abrirModal, cerrarModal, mostrarToast, fechaDeHoyISO, claveProducto, escapeHtml } from './utils.js';
 import { cargarInventario } from './datos.js';
 import { registrarMovimiento } from './movimientos.js';
 import { actualizarBadgesSidebar } from './shell.js';
@@ -87,7 +87,9 @@ export async function abrirModalMedicamento(medicamento, codigoPrecargado, datos
   const form = document.getElementById('form-medicamento');
   form.reset();
   document.getElementById('medicamento-error').classList.add('oculto');
+  document.getElementById('aviso-lote-nuevo').classList.add('oculto');
   advertenciaYaMostrada = null;
+  actualizarListaDeNombres();
 
   document.getElementById('titulo-modal-medicamento').textContent =
     medicamento ? 'Editar medicamento' : 'Agregar medicamento';
@@ -149,6 +151,95 @@ export async function abrirModalMedicamento(medicamento, codigoPrecargado, datos
   }
 }
 
+// Abre el alta de un LOTE NUEVO de un medicamento que ya está en el
+// inventario (ej. llegó otra caja con otro lote y otro vencimiento, o la
+// misma droga de otra marca). Copia los datos del producto desde "base"
+// (un lote existente) y deja en blanco lo que cambia de un lote a otro:
+// número de lote y vencimiento. Todo queda editable (incluso el código y
+// la marca, por si la caja nueva es de otro laboratorio).
+//   cantidad:  stock con el que entra el lote (si ya se había escrito en
+//              el modal de ingreso).
+//   datosGS1:  lote, vencimiento y código leídos del código 2D, si el
+//              lote nuevo se detectó al escanear.
+//   alternativa: { texto, accion } -> botón opcional dentro del aviso (ej.
+//              "No es un lote nuevo") que cierra el formulario y hace otra cosa.
+export async function abrirModalLoteNuevo(base, { cantidad = null, datosGS1 = null, alternativa = null } = {}) {
+  await abrirModalMedicamento(null, datosGS1?.codigoBarras || base.codigo_barras || '', null);
+
+  document.getElementById('titulo-modal-medicamento').textContent = 'Nuevo lote';
+  const avisoEl = document.getElementById('aviso-lote-nuevo');
+  avisoEl.innerHTML = `Lote nuevo de <strong>${escapeHtml(base.nombre_generico)}</strong>. Se copiaron los datos del producto: revisá el lote, el vencimiento, la cantidad y, si la caja es de otra marca, el nombre comercial y el código.`;
+  if (alternativa) {
+    const boton = document.createElement('button');
+    boton.type = 'button';
+    boton.className = 'btn-link';
+    boton.textContent = alternativa.texto;
+    boton.addEventListener('click', () => {
+      cerrarModal('modal-medicamento');
+      alternativa.accion();
+    });
+    avisoEl.append(' ', boton);
+  }
+  avisoEl.classList.remove('oculto');
+
+  const poner = (id, valor) => { document.getElementById(id).value = valor ?? ''; };
+  poner('med-nombre-generico', base.nombre_generico);
+  poner('med-nombre-comercial', base.nombre_comercial);
+  poner('med-categoria', base.categoria);
+  poner('med-unidad', base.unidad);
+  poner('med-stock-minimo', base.stock_minimo ?? 0);
+  poner('med-condicion', base.condicion_almacenamiento || 'ambiente');
+  poner('med-ubicacion', base.ubicacion);
+  poner('med-proveedor', base.proveedor);
+  poner('med-lote', datosGS1?.lote || '');
+  poner('med-fecha-vencimiento', datosGS1?.fechaVencimiento || '');
+  poner('med-stock-actual', cantidad > 0 ? cantidad : '');
+
+  // El cursor va directo al primer dato que falta completar.
+  const primerVacio = ['med-lote', 'med-fecha-vencimiento', 'med-stock-actual']
+    .map((id) => document.getElementById(id))
+    .find((campo) => !campo.value);
+  (primerVacio || document.getElementById('med-stock-actual')).focus();
+}
+
+// Lista de nombres genéricos ya cargados, para que el campo los sugiera
+// mientras se escribe: así "Amoxicilina" se escribe siempre igual y sus
+// marcas y lotes quedan agrupados juntos en el inventario.
+function actualizarListaDeNombres() {
+  const lista = document.getElementById('lista-nombres-genericos');
+  if (!lista) return;
+  const porClave = new Map();
+  estado.medicamentos.forEach((m) => {
+    const clave = claveProducto(m.nombre_generico);
+    if (clave && !porClave.has(clave)) porClave.set(clave, m.nombre_generico.trim());
+  });
+  lista.innerHTML = '';
+  [...porClave.values()].sort((a, b) => a.localeCompare(b, 'es')).forEach((nombre) => {
+    const opcion = document.createElement('option');
+    opcion.value = nombre;
+    lista.appendChild(opcion);
+  });
+}
+
+// Al elegir (o escribir) en un alta el nombre de un medicamento que ya
+// existe, se completan los datos generales que estén vacíos (categoría,
+// unidad, almacenamiento, mínimo), sin pisar nada que ya se haya escrito.
+document.getElementById('med-nombre-generico')?.addEventListener('change', (e) => {
+  if (document.getElementById('med-id').value) return; // sólo en altas
+  const clave = claveProducto(e.target.value);
+  const existentes = estado.medicamentos.filter((m) => claveProducto(m.nombre_generico) === clave);
+  if (existentes.length === 0) return;
+  const base = [...existentes].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))[0];
+  const completarSiVacio = (id, valor) => {
+    const campo = document.getElementById(id);
+    if (!campo.value && valor) campo.value = valor;
+  };
+  completarSiVacio('med-categoria', base.categoria);
+  completarSiVacio('med-unidad', base.unidad);
+  const minimo = document.getElementById('med-stock-minimo');
+  if (Number(minimo.value) === 0 && Number(base.stock_minimo) > 0) minimo.value = base.stock_minimo;
+});
+
 // Busca el producto en el catálogo por su código y, si existe, completa
 // sus datos fijos (nombre, categoría, unidad...). Devuelve true si lo
 // encontró.
@@ -169,54 +260,32 @@ async function completarDesdeCatalogo(codigo) {
   return true;
 }
 
-// Evita el error más común al cargar medicamentos "a mano": que un mismo
-// producto (ej. "Polivitaminico") termine repartido en dos registros
-// distintos con nombres o códigos de barras que no coinciden entre sí.
-// El código de barras es lo que identifica al PRODUCTO para agrupar sus
-// lotes (ver inventario.js), así que:
-//   - si el código de barras ya está usado por otro nombre, es un
-//     conflicto (¿es el mismo producto con el nombre mal tipeado, o un
-//     código repetido por error?).
-//   - si el nombre genérico ya existe pero con otro código de barras,
-//     NO se bloquea: es normal tener la misma droga en distintas marcas
-//     o presentaciones (ej. amoxicilina de distintos laboratorios, que
-//     llegan por donaciones), y cada una tiene su propio código. Sólo se
-//     muestra una ADVERTENCIA la primera vez, por si en realidad es el
-//     mismo producto cargado de nuevo sin usar su código; tocando
-//     "Guardar" otra vez se confirma y se guarda igual.
-// El primer caso sí bloquea el guardado con un mensaje explicando qué
-// registro ya existe, en vez de dejar crear el duplicado silenciosamente.
-// Esto es una validación de la app, no un constraint de la base de datos:
-// no reemplaza agregar una restricción real en schema.sql si se quiere
-// una garantía más fuerte.
+// Un medicamento (nombre genérico) puede tener MUCHOS códigos de barras:
+// uno por marca, laboratorio o presentación (ej. amoxicilina de distintos
+// laboratorios, que llegan por donaciones). Eso es lo normal y no se
+// controla. Lo que sí es raro es lo contrario: que un mismo código de
+// barras ya esté cargado con OTRO nombre genérico (¿se tipeó mal el nombre,
+// o se escaneó la caja equivocada?). En ese caso se muestra una
+// ADVERTENCIA la primera vez; tocando "Guardar" otra vez se confirma y se
+// guarda igual (hay códigos internos que se repiten entre productos).
 // Guarda la advertencia que ya se le mostró al usuario para estos mismos
 // datos, así el segundo clic en "Guardar" cuenta como confirmación.
 let advertenciaYaMostrada = null;
 
 function buscarConflictoDeProducto(datos, idActual) {
-  const nombreNuevo = datos.nombre_generico.trim().toLowerCase();
-  const otros = estado.medicamentos.filter((m) => m.id !== idActual);
-
-  if (datos.codigo_barras) {
-    const mismoCodigo = otros.find((m) => m.codigo_barras === datos.codigo_barras);
-    if (mismoCodigo && mismoCodigo.nombre_generico.trim().toLowerCase() !== nombreNuevo) {
-      return `Ese código de barras ya está cargado como "${mismoCodigo.nombre_generico}". Usá exactamente ese mismo nombre para que los lotes se agrupen bien (o cambiá el código si en realidad es un producto distinto).`;
-    }
-  }
-
-  const mismoNombreOtroCodigo = otros.find((m) =>
-    m.nombre_generico.trim().toLowerCase() === nombreNuevo &&
-    (m.codigo_barras || null) !== (datos.codigo_barras || null)
+  if (!datos.codigo_barras) return null;
+  const claveNueva = claveProducto(datos.nombre_generico);
+  const mismoCodigo = estado.medicamentos.find((m) =>
+    m.id !== idActual &&
+    m.codigo_barras === datos.codigo_barras &&
+    claveProducto(m.nombre_generico) !== claveNueva
   );
-  if (mismoNombreOtroCodigo) {
-    const clave = `${nombreNuevo}|${datos.codigo_barras || ''}|${(datos.nombre_comercial || '').toLowerCase()}`;
-    if (advertenciaYaMostrada === clave) return null; // segundo clic: confirmado
-    advertenciaYaMostrada = clave;
-    const marcaExistente = mismoNombreOtroCodigo.nombre_comercial ? ` (${mismoNombreOtroCodigo.nombre_comercial})` : '';
-    return `Atención: ya existe "${mismoNombreOtroCodigo.nombre_generico}"${marcaExistente} con el código "${mismoNombreOtroCodigo.codigo_barras || 'sin código'}". Si es otra marca o presentación, completá el nombre comercial y tocá "Guardar" de nuevo para confirmar. Si es el mismo producto, usá ese mismo código para que quede como un lote más.`;
-  }
+  if (!mismoCodigo) return null;
 
-  return null;
+  const clave = `${claveNueva}|${datos.codigo_barras}`;
+  if (advertenciaYaMostrada === clave) return null; // segundo clic: confirmado
+  advertenciaYaMostrada = clave;
+  return `Atención: el código "${datos.codigo_barras}" ya está cargado como "${mismoCodigo.nombre_generico}". Si es el mismo medicamento, usá ese mismo nombre para que sus lotes queden juntos. Si estás seguro de que es otro, tocá "Guardar" de nuevo.`;
 }
 
 document.getElementById('form-medicamento')?.addEventListener('submit', async (e) => {

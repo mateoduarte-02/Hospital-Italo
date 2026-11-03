@@ -66,6 +66,20 @@ export function formatearFechaHora(fechaIso) {
   });
 }
 
+// --- Agrupación de lotes por medicamento ---
+// Un MEDICAMENTO es su nombre genérico (ej. "Amoxicilina"): todas sus
+// marcas, laboratorios y lotes van juntos, aunque cada caja traiga su
+// propio código de barras. Para que "Amoxicilina", "amoxicilina " y
+// "Amoxicilína" caigan en el mismo grupo, se compara sin mayúsculas, sin
+// tildes y sin espacios de más.
+export function claveProducto(nombreGenerico) {
+  return (nombreGenerico || '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 // --- Texto seguro (evita que datos cargados por el usuario rompan el HTML) ---
 export function escapeHtml(texto) {
   if (texto === null || texto === undefined) return '';

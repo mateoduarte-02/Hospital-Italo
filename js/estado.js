@@ -11,7 +11,7 @@ export const estado = {
   medicamentos: [],             // cache de la tabla "medicamentos"
   movimientos: [],              // cache de la tabla "movimientos" (con el medicamento embebido)
   perfiles: {},                 // mapa { id_usuario: nombre } para mostrar nombres en la auditoría
-  gruposExpandidos: new Set(),  // qué códigos de barras están "desplegados" mostrando sus lotes
+  gruposExpandidos: new Set(),  // qué medicamentos (clave del nombre genérico, ver claveProducto) están desplegados
 };
 
-export const DIAS_ALERTA_VENCIMIENTO = 15; // días de anticipación para avisar vencimientos
+export const DIAS_ALERTA_VENCIMIENTO = 30; // días de anticipación para avisar vencimientos
