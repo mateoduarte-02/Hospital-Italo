@@ -31,6 +31,8 @@ const TRAZOS = {
   cerrar: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
   camara: '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3.5"/>',
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+  ordenar: '<path d="m3 16 4 4 4-4"/><path d="M7 20V4"/><path d="m21 8-4-4-4 4"/><path d="M17 4v16"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
 };
 
 export function icono(nombre, tamano = 18) {

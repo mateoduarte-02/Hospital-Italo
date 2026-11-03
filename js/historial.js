@@ -54,6 +54,9 @@ export function etiquetaTipoMovimiento(tipo) {
 // verdad" (lo que la persona haya escrito además del paciente/médico).
 function parsearInfoPR(observaciones) {
   if (!observaciones) return null;
+  if (observaciones.startsWith('[Por vencimiento]')) {
+    return { vencimiento: true, resto: observaciones.replace('[Por vencimiento]', '').trim() };
+  }
   if (observaciones.startsWith('[Con PR]')) {
     return { conPR: true, resto: observaciones.replace('[Con PR]', '').trim() };
   }
@@ -73,7 +76,9 @@ function celdaTipoMovimiento(mv) {
   const infoPR = parsearInfoPR(mv.observaciones);
   if (!infoPR) return base; // retiro viejo, de antes de que existiera esta marca
 
-  const chip = infoPR.conPR
+  const chip = infoPR.vencimiento
+    ? '<span class="chip chip-por-vencimiento">Por vencimiento</span>'
+    : infoPR.conPR
     ? '<span class="chip chip-pr-si">Con PR</span>'
     : '<span class="chip chip-pr-no">Sin PR</span>';
   return `${base} ${chip}`;

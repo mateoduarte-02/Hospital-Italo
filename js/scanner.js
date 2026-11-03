@@ -6,9 +6,10 @@
 // mandan un Enter automáticamente. Por eso alcanza con escuchar el evento
 // "keydown" de este input y reaccionar cuando la tecla es "Enter".
 import { estado } from './estado.js';
-import { renderizarTablaMedicamentos } from './inventario.js';
+import { renderizarTablaMedicamentos, loteMasReciente } from './inventario.js';
 import { abrirModalMovimiento } from './movimientos.js';
-import { abrirModalMedicamento } from './medicamentos.js';
+import { abrirModalMedicamento, abrirModalLoteNuevo } from './medicamentos.js';
+import { claveProducto } from './utils.js';
 import { escanearConCamara, hayCamara } from './camara.js';
 
 // Se llama desde main-inventario.js, después de que js/shell.js terminó
@@ -41,7 +42,7 @@ export function iniciarScanner() {
     if (esPantallaTactil) return;
     const hayModalAbierto = document.querySelector('.modal-fondo:not(.oculto)');
     if (hayModalAbierto) return;
-    if (e.target.closest('.check-con-ayuda, .camara-capa')) return;
+    if (e.target.closest('.check-con-ayuda, .camara-capa, .menu-orden')) return;
 
     // Si el clic fue sobre otro campo editable (un buscador, un input de
     // un formulario, etc.), respetamos esa elección: la persona quiere
@@ -306,6 +307,13 @@ function elegirLoteParaRetiro(lotes) {
   })[0];
 }
 
+// Para comparar números de lote escritos a mano con el que trae el código
+// 2D: "L 00111", "l00111", "L00111" y "00111" se toman como el mismo lote
+// (muchas veces se tipea la "L" de "Lote" o se omiten los ceros).
+function normalizarLote(lote) {
+  return (lote || '').replace(/\s+/g, '').toUpperCase().replace(/^L(?=\w)/, '').replace(/^0+(?=\w)/, '');
+}
+
 export const MENSAJE_QR_LINK =
   'Ese es el código QR del laboratorio (un link a su página web) y no sirve para identificar el medicamento. ' +
   'Escaneá el código de barras (las rayitas) o el código cuadrado chiquito de trazabilidad.';
@@ -330,11 +338,34 @@ function buscarPorCodigoBarras(textoEscaneado) {
   if (coincidencias.length > 0) {
     const nombreProducto = coincidencias[0].nombre_generico;
 
+    // Si el código 2D trae un número de lote que todavía NO está cargado
+    // con este código, la caja es de un lote nuevo (llegó mercadería con
+    // otro vencimiento): en vez de sumarla o restarla de otro lote, se abre
+    // el alta del lote nuevo con todo precargado.
+    const loteLeido = normalizarLote(analisis.lote);
+    const mismoLote = loteLeido
+      ? coincidencias.find((m) => normalizarLote(m.lote) === loteLeido)
+      : null;
+    if (loteLeido && !mismoLote) {
+      mensajeEl.textContent = `${nombreProducto}: el lote "${analisis.lote}" no está cargado. Se abrió el formulario para cargarlo como lote nuevo.`;
+      mensajeEl.className = 'scanner-mensaje ok';
+      abrirModalLoteNuevo(loteMasReciente(coincidencias), {
+        datosGS1: analisis,
+        // Por si el lote sí estaba cargado pero escrito distinto: un botón
+        // para volver al movimiento de stock de siempre.
+        alternativa: {
+          texto: 'No es un lote nuevo: registrar un movimiento',
+          accion: () => abrirModalMovimiento(elegirLoteParaRetiro(coincidencias), 'retiro'),
+        },
+      });
+      return;
+    }
+
     // Nos aseguramos de estar parados en la vista de inventario, dejamos
     // el grupo de este producto desplegado, y filtramos/resaltamos TODAS
     // las filas encontradas (para que quede visible de qué lote se va a
     // descontar el retiro que se abre a continuación).
-    if (coincidencias.length > 1) estado.gruposExpandidos.add(codigo);
+    estado.gruposExpandidos.add(claveProducto(nombreProducto));
     document.getElementById('buscador-inventario').value = nombreProducto;
     renderizarTablaMedicamentos();
 
@@ -352,10 +383,14 @@ function buscarPorCodigoBarras(textoEscaneado) {
     // caso más común es un retiro (se usó/entregó una unidad), así que el
     // modal arranca ahí, pero el toggle de Ingreso/Retiro dentro del modal
     // permite cambiarlo con un clic si en realidad llegó mercadería nueva.
-    const loteElegido = elegirLoteParaRetiro(coincidencias);
+    // Si el código 2D dijo de qué lote es la caja, se usa ESE lote; si no
+    // (código de barras común), el de vencimiento más próximo.
+    const loteElegido = mismoLote || elegirLoteParaRetiro(coincidencias);
     mensajeEl.textContent = coincidencias.length === 1
       ? `Encontrado: ${nombreProducto} (1 lote en stock). Se abrió el movimiento de stock.`
-      : `Encontrado: ${nombreProducto} (${coincidencias.length} lotes en stock). Se abrió el movimiento sobre el lote "${loteElegido.lote || 's/n'}" (el de vencimiento más próximo).`;
+      : mismoLote
+        ? `Encontrado: ${nombreProducto}, lote "${mismoLote.lote}" (leído del código 2D). Se abrió el movimiento de stock.`
+        : `Encontrado: ${nombreProducto} (${coincidencias.length} lotes en stock). Se abrió el movimiento sobre el lote "${loteElegido.lote || 's/n'}" (el de vencimiento más próximo).`;
     mensajeEl.className = 'scanner-mensaje ok';
 
     abrirModalMovimiento(loteElegido, 'retiro');

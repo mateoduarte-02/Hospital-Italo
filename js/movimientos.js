@@ -3,7 +3,8 @@
 // =========================================================================
 import { supabaseClient } from './supabase-client.js';
 import { estado } from './estado.js';
-import { abrirModal, cerrarModal, mostrarToast } from './utils.js';
+import { abrirModal, cerrarModal, mostrarToast, formatearFecha, fechaDeHoyISO } from './utils.js';
+import { abrirModalLoteNuevo } from './medicamentos.js';
 import { cargarInventario } from './datos.js';
 import { actualizarBadgesSidebar } from './shell.js';
 
@@ -15,6 +16,13 @@ export function abrirModalMovimiento(medicamento, tipo) {
   document.getElementById('mov-nombre-medicamento').textContent =
     `${medicamento.nombre_generico}${medicamento.nombre_comercial ? ' (' + medicamento.nombre_comercial + ')' : ''}`;
   document.getElementById('mov-stock-actual-texto').textContent = `${medicamento.stock_actual} ${medicamento.unidad || ''}`;
+  // Lote y vencimiento a la vista: así se nota si la caja que se tiene en
+  // la mano es de este mismo lote o de otro.
+  const detalleLote = [
+    medicamento.lote ? `Lote ${medicamento.lote}` : 'Sin número de lote',
+    medicamento.fecha_vencimiento ? `vence ${formatearFecha(medicamento.fecha_vencimiento)}` : null,
+  ].filter(Boolean).join(' · ');
+  document.getElementById('mov-lote-texto').textContent = ` · ${detalleLote}`;
 
   // El tipo con el que se abre es solo el punto de partida: viene
   // predefinido cuando se entra desde los botones +/− de la tabla, o es
@@ -22,6 +30,11 @@ export function abrirModalMovimiento(medicamento, tipo) {
   // caso, el toggle de abajo deja cambiarlo antes de confirmar.
   aplicarTipoMovimiento(tipo);
   aplicarPR('no');
+  // Si el lote ya está vencido, lo más probable es que se esté retirando
+  // para descartarlo: la casilla "Retiro por vencimiento" arranca marcada
+  // (se puede desmarcar con un toque).
+  const yaVencido = medicamento.fecha_vencimiento && medicamento.fecha_vencimiento < fechaDeHoyISO();
+  aplicarMotivo(yaVencido ? 'vencimiento' : 'uso');
 
   document.getElementById('mov-preview').classList.add('oculto');
 
@@ -51,6 +64,7 @@ function aplicarTipoMovimiento(tipo) {
   // medicamento a un paciente): en un ingreso no hay nada que prescribir,
   // así que directamente escondemos toda esa sección.
   document.getElementById('mov-pr-seccion').classList.toggle('oculto', tipo !== 'retiro');
+  document.getElementById('mov-lote-nuevo').classList.toggle('oculto', tipo !== 'ingreso');
 
   actualizarPreviewMovimiento();
 }
@@ -59,10 +73,44 @@ document.querySelectorAll('.mov-tipo-boton').forEach((btn) => {
   btn.addEventListener('click', () => aplicarTipoMovimiento(btn.dataset.tipo));
 });
 
+// "Cargarlo como lote nuevo": en vez de sumar al lote que está abierto, se
+// abre el alta de un lote nuevo con los datos del producto ya copiados (y
+// la cantidad, si ya se había escrito), para completar lote y vencimiento.
+document.getElementById('btn-mov-lote-nuevo')?.addEventListener('click', () => {
+  const medicamento = estado.medicamentos.find((m) => m.id === document.getElementById('mov-medicamento-id').value);
+  if (!medicamento) return;
+  const cantidad = Number(document.getElementById('mov-cantidad').value) || null;
+  cerrarModal('modal-movimiento');
+  abrirModalLoteNuevo(medicamento, { cantidad });
+});
+
+// Casilla "Retiro por vencimiento" (debajo de Sin PR / Con PR): el
+// medicamento se descarta por vencido, no se entrega a nadie. Al marcarla
+// la receta no aplica (queda en "Sin PR" y deshabilitada) y, si todavía
+// no se escribió la cantidad, se propone retirar todo el lote.
+function aplicarMotivo(motivo) {
+  const esVencimiento = motivo === 'vencimiento';
+  document.getElementById('mov-motivo').value = esVencimiento ? 'vencimiento' : 'uso';
+  document.getElementById('mov-por-vencimiento').checked = esVencimiento;
+  if (esVencimiento) aplicarPR('no', { sinFoco: true });
+  document.querySelectorAll('.mov-pr-boton').forEach((btn) => { btn.disabled = esVencimiento; });
+
+  const cantidad = document.getElementById('mov-cantidad');
+  const medicamento = estado.medicamentos.find((m) => m.id === document.getElementById('mov-medicamento-id').value);
+  if (esVencimiento && !cantidad.value && medicamento && Number(medicamento.stock_actual) > 0) {
+    cantidad.value = medicamento.stock_actual;
+  }
+  actualizarPreviewMovimiento();
+}
+
+document.getElementById('mov-por-vencimiento')?.addEventListener('change', (e) => {
+  aplicarMotivo(e.target.checked ? 'vencimiento' : 'uso');
+});
+
 // Aplica si el retiro es con receta (PR) o sin ella: guarda el valor,
 // marca el botón activo y muestra/oculta los campos de paciente y médico
 // (que solo son obligatorios cuando hay receta).
-function aplicarPR(esConPR) {
+function aplicarPR(esConPR, { sinFoco = false } = {}) {
   document.getElementById('mov-pr').value = esConPR;
 
   document.querySelectorAll('.mov-pr-boton').forEach((btn) => {
@@ -70,7 +118,7 @@ function aplicarPR(esConPR) {
   });
 
   document.getElementById('mov-pr-campos').classList.toggle('oculto', esConPR !== 'si');
-  if (esConPR === 'si') {
+  if (esConPR === 'si' && !sinFoco) {
     document.getElementById('mov-pr-paciente').focus();
   }
 }
@@ -105,6 +153,9 @@ function actualizarPreviewMovimiento() {
   if (tipo === 'retiro' && nuevoStock < 0) {
     preview.className = 'preview-resultado error';
     preview.textContent = `⚠ No hay stock suficiente (solo hay ${medicamento.stock_actual}).`;
+  } else if (tipo === 'retiro' && nuevoStock === 0 && document.getElementById('mov-motivo').value === 'vencimiento') {
+    preview.className = 'preview-resultado bien';
+    preview.textContent = 'El lote queda en 0 y se da de baja (se oculta de la lista, con su historial).';
   } else if (nuevoStock <= Number(medicamento.stock_minimo)) {
     preview.className = 'preview-resultado advertencia';
     preview.textContent = `Va a quedar en ${nuevoStock} ${medicamento.unidad || ''} — por debajo o igual al mínimo (${medicamento.stock_minimo}).`;
@@ -148,7 +199,8 @@ document.getElementById('form-movimiento')?.addEventListener('submit', async (e)
   // Si el retiro es "con receta", el paciente y el médico son obligatorios:
   // son justamente el dato que justifica la entrega. En un ingreso, o en
   // un retiro "sin receta", esto ni se pide.
-  const esConPR = tipo === 'retiro' && document.getElementById('mov-pr').value === 'si';
+  const porVencimiento = tipo === 'retiro' && document.getElementById('mov-motivo').value === 'vencimiento';
+  const esConPR = tipo === 'retiro' && !porVencimiento && document.getElementById('mov-pr').value === 'si';
   const paciente = document.getElementById('mov-pr-paciente').value.trim();
   const medico = document.getElementById('mov-pr-medico').value.trim();
 
@@ -162,7 +214,11 @@ document.getElementById('form-movimiento')?.addEventListener('submit', async (e)
   // "[Con PR]" / "[Sin PR]" en TODO retiro (no solo cuando hay receta),
   // para que en el historial quede explícito uno u otro caso y no default
   // a "no dice nada" cuando es sin receta (ver historial.js).
-  const observaciones = tipo === 'retiro'
+  // Un retiro por vencimiento lleva su propia marca, "[Por vencimiento]",
+  // en lugar de la de receta (no se entrega a nadie: se descarta).
+  const observaciones = porVencimiento
+    ? '[Por vencimiento]' + (observacionesTexto ? ` ${observacionesTexto}` : '')
+    : tipo === 'retiro'
     ? (esConPR
         ? `[Con PR] Paciente: ${paciente} — Médico: ${medico}` + (observacionesTexto ? ` — ${observacionesTexto}` : '')
         : `[Sin PR]` + (observacionesTexto ? ` ${observacionesTexto}` : ''))
@@ -190,7 +246,7 @@ document.getElementById('form-movimiento')?.addEventListener('submit', async (e)
     await registrarMovimiento(medicamentoId, tipo, cantidad, nuevoStock, observaciones);
 
     cerrarModal('modal-movimiento');
-    mostrarToast(tipo === 'ingreso' ? 'Ingreso registrado' : 'Retiro registrado');
+    mostrarToast(tipo === 'ingreso' ? 'Ingreso registrado' : porVencimiento ? 'Retiro por vencimiento registrado' : 'Retiro registrado');
     await cargarInventario();
     await actualizarBadgesSidebar();
   } catch (err) {

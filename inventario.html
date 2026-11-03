@@ -55,7 +55,12 @@
           </div>
 
           <div class="barra-acciones">
-            <input type="search" id="buscador-inventario" placeholder="Buscar por nombre, lote o código" aria-label="Buscar en el inventario" />
+            <input type="search" id="buscador-inventario" placeholder="Buscar por nombre, marca, lote o código" aria-label="Buscar en el inventario" />
+            <!-- Menú "Ordenar": lo arma js/inventario.js (ver iniciarMenuOrden).
+                 Es un menú propio y no un <select> porque la lista que abre
+                 un <select> la dibuja el sistema operativo y no se puede
+                 adaptar a los colores de la app. -->
+            <div class="menu-orden" id="menu-orden"></div>
             <!-- Casilla con ayuda: el globo con la explicación aparece al
                  pasar el mouse, al llegar con el teclado o al tocar la (i)
                  en el celular. -->
@@ -113,6 +118,7 @@
 
       <form id="form-medicamento" class="form-grid">
         <input type="hidden" id="med-id" />
+        <p id="aviso-lote-nuevo" class="aviso-lote-nuevo oculto"></p>
 
         <div class="campo">
           <label for="med-codigo-barras">Código de barras / QR</label>
@@ -124,11 +130,12 @@
 
         <div class="campo">
           <label for="med-nombre-generico">Nombre genérico *</label>
-          <input type="text" id="med-nombre-generico" required placeholder="Ej: Paracetamol" />
+          <input type="text" id="med-nombre-generico" required placeholder="Ej: Paracetamol" list="lista-nombres-genericos" autocomplete="off" />
+          <datalist id="lista-nombres-genericos"></datalist>
         </div>
 
         <div class="campo">
-          <label for="med-nombre-comercial">Nombre comercial</label>
+          <label for="med-nombre-comercial">Nombre comercial (marca)</label>
           <input type="text" id="med-nombre-comercial" placeholder="Ej: Tafirol" />
         </div>
 
@@ -221,7 +228,7 @@
         <input type="hidden" id="mov-tipo" />
 
         <p><strong id="mov-nombre-medicamento"></strong></p>
-        <p class="subtexto">Stock actual: <span id="mov-stock-actual-texto">0</span></p>
+        <p class="subtexto">Stock actual: <span id="mov-stock-actual-texto">0</span><span id="mov-lote-texto"></span></p>
 
         <div class="mov-tipo-toggle" role="group" aria-label="Tipo de movimiento">
           <button type="button" class="mov-tipo-boton" data-tipo="ingreso"><svg class="icono" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg> Ingreso</button>
@@ -233,6 +240,14 @@
 
         <div id="mov-preview" class="preview-resultado oculto"></div>
 
+        <!-- Sólo en un ingreso: si la caja que llegó es de OTRO lote (otro
+             vencimiento) u otra marca, no hay que sumarla a este lote sino
+             cargarla aparte. Ver movimientos.js. -->
+        <p id="mov-lote-nuevo" class="mov-lote-nuevo oculto">
+          ¿Llegó con otro lote, otro vencimiento u otra marca?
+          <button type="button" class="btn-link" id="btn-mov-lote-nuevo">Cargarlo como lote nuevo</button>
+        </p>
+
         <div id="mov-pr-seccion" class="oculto">
           <input type="hidden" id="mov-pr" value="no" />
           <label>¿Con receta (PR)?</label>
@@ -240,6 +255,14 @@
             <button type="button" class="mov-pr-boton" data-pr="no">Sin PR</button>
             <button type="button" class="mov-pr-boton" data-pr="si">Con PR</button>
           </div>
+
+          <!-- Retiro por vencimiento: deja registrado que se descartó por
+               vencido (ver aplicarMotivo en movimientos.js). -->
+          <input type="hidden" id="mov-motivo" value="uso" />
+          <label class="check-vencimiento">
+            <input type="checkbox" id="mov-por-vencimiento" />
+            Retiro por vencimiento
+          </label>
 
           <div id="mov-pr-campos" class="oculto">
             <label for="mov-pr-paciente">Paciente *</label>

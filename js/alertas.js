@@ -6,7 +6,7 @@
 // vez de repetir el nombre del producto una vez por lote, los agrupamos
 // bajo un solo renglón (con el dato más urgente de todos), que se puede
 // desplegar para ver el detalle de cada lote.
-import { escapeHtml, formatearFecha } from './utils.js';
+import { escapeHtml, formatearFecha, claveProducto } from './utils.js';
 import { calcularAlertas } from './inventario.js';
 import { icono } from './iconos.js';
 
@@ -27,15 +27,13 @@ export function renderizarAlertas() {
   badge.classList.toggle('oculto', total === 0);
 }
 
-// Agrupa por código de barras (el mismo criterio que usa el inventario
-// para agrupar lotes de un mismo producto). Los que no tienen código
-// quedan cada uno en su propio grupo de 1 (no hay con qué agruparlos con
-// certeza), usando su id para que nunca se mezclen entre sí.
+// Agrupa por medicamento (nombre genérico), el mismo criterio que usa el
+// inventario: todas las marcas y lotes de una misma droga van juntos.
 function agruparPorProducto(lista, obtenerMedicamento) {
   const grupos = new Map();
   lista.forEach((item) => {
     const m = obtenerMedicamento(item);
-    const clave = m.codigo_barras || `id:${m.id}`;
+    const clave = claveProducto(m.nombre_generico);
     if (!grupos.has(clave)) grupos.set(clave, []);
     grupos.get(clave).push(item);
   });
@@ -83,7 +81,7 @@ function crearItemVencimiento({ m, info }, esLote) {
     ? `
       <div class="info">
         <strong>Lote ${escapeHtml(m.lote || 's/n')}</strong>
-        <span>Vence ${formatearFecha(m.fecha_vencimiento)}</span>
+        <span>${m.nombre_comercial ? escapeHtml(m.nombre_comercial) + ' · ' : ''}Vence ${formatearFecha(m.fecha_vencimiento)}</span>
       </div>
       <div class="valor">${info.texto}</div>
     `
@@ -143,7 +141,7 @@ function crearItemStock(m, esLote) {
   div.innerHTML = `
     <div class="info">
       <strong>${esLote ? 'Lote ' + escapeHtml(m.lote || 's/n') : escapeHtml(m.nombre_generico)}</strong>
-      <span>Mínimo: ${m.stock_minimo} ${escapeHtml(m.unidad || '')}</span>
+      <span>${esLote && m.nombre_comercial ? escapeHtml(m.nombre_comercial) + ' · ' : ''}Mínimo: ${m.stock_minimo} ${escapeHtml(m.unidad || '')}</span>
     </div>
     <div class="valor"><span class="stock-cantidad">${m.stock_actual}</span> <span class="stock-unidad">${escapeHtml(m.unidad || '')}</span></div>
   `;
